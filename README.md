@@ -18,3 +18,27 @@ The project is currently in the technical design phase. The source PRD is in `fl
 - Backend: FastAPI, PostgreSQL, Redis, scheduled jobs.
 - AI services: LLM feedback/planning, speech-to-text, text-to-speech, embeddings later.
 
+## Local Development
+
+Install dependencies:
+
+```bash
+npm install
+```
+
+Run the frontend:
+
+```bash
+npm run dev
+```
+
+Quality checks:
+
+```bash
+npm run lint
+npm run typecheck
+npm run build
+npm audit --omit=dev
+```
+
+The first app slice uses local seed data. Kimi, whisper.cpp, persistence, and backend APIs will be wired in later milestones.

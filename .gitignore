@@ -14,10 +14,10 @@ __pycache__/
 out/
 dist/
 build/
+tsconfig.tsbuildinfo
 
 # Logs
 *.log
 
 # System files
 .DS_Store
-

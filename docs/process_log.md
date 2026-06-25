@@ -49,3 +49,13 @@ Product decision update:
 - Assistant researched speech options and recommended local-first speech: browser recording and TTS first, then `whisper.cpp` for local transcription, with Azure Speech as the first cloud fallback if needed.
 - User selected the free/local `whisper.cpp` path.
 - User defined the main speaking workflow: the app gives a topic, the learner speaks for about 3 minutes, the recording is transcribed, Kimi polishes it into a better version, and the learner reads after the polished version.
+
+Implementation update:
+
+- User asked assistant to start working on the project.
+- Assistant created the first Next.js and TypeScript frontend MVP shell.
+- Added seeded local data for daily tasks, vocabulary, mistakes, progress, resources, and speaking topics.
+- Built interactive local views for Dashboard, Daily Plan, Speaking Room, Writing Studio, Vocabulary Bank, Mistake Notebook, Progress Report, Resource Center, and Settings.
+- Speaking Room now supports browser recording, replay, manual transcript editing, a seeded polished version, and browser text-to-speech read-after practice.
+- Added ESLint configuration, TypeScript config, package lockfile, and a PostCSS override to keep `npm audit --omit=dev` clean.
+- Verified with `npm run lint`, `npm run typecheck`, `npm run build`, `npm audit --omit=dev`, and a localhost `200 OK` probe.
