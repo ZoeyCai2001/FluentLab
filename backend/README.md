@@ -14,8 +14,10 @@ python3 -m venv .venv
 Start the API:
 
 ```bash
-.venv/bin/uvicorn backend.app.main:app --reload --host 127.0.0.1 --port 8000
+.venv/bin/uvicorn backend.app.main:app --reload --reload-dir backend/app --host 127.0.0.1 --port 8001
 ```
+
+The root `npm run api:dev` command uses the same port and limits reload watching to `backend/app`, so local dependency folders do not trigger repeated backend restarts.
 
 Run tests:
 

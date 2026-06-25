@@ -15,6 +15,7 @@ import {
   NotebookTabs,
   Play,
   RefreshCcw,
+  RotateCw,
   Settings,
   Sparkles,
   Square,
@@ -22,7 +23,7 @@ import {
   Wand2,
   type LucideIcon,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   getHealth,
   getMistakes,
@@ -166,6 +167,7 @@ export default function Home() {
   const [progressPoints, setProgressPoints] = useState<ProgressPoint[]>(fallbackProgress);
   const [apiLive, setApiLive] = useState(false);
   const [apiMessage, setApiMessage] = useState("Loading backend data...");
+  const [isSyncing, setIsSyncing] = useState(false);
   const [selectedTopic, setSelectedTopic] = useState(speakingTopics[0]);
   const [isRecording, setIsRecording] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
@@ -209,51 +211,40 @@ export default function Home() {
 
   const meta = pageMeta[activeView];
 
-  useEffect(() => {
-    let cancelled = false;
+  const loadBackendData = useCallback(async () => {
+    setIsSyncing(true);
+    try {
+      const [health, plan, apiSettings, apiVocabulary, apiMistakes, apiResources, weeklyProgress] =
+        await Promise.all([
+          getHealth(),
+          getTodayPlan(),
+          getSettings(),
+          getVocabulary(),
+          getMistakes(),
+          getResources(),
+          getWeeklyProgress(),
+        ]);
 
-    async function loadBackendData() {
-      try {
-        const [health, plan, apiSettings, apiVocabulary, apiMistakes, apiResources, weeklyProgress] =
-          await Promise.all([
-            getHealth(),
-            getTodayPlan(),
-            getSettings(),
-            getVocabulary(),
-            getMistakes(),
-            getResources(),
-            getWeeklyProgress(),
-          ]);
-
-        if (cancelled) {
-          return;
-        }
-
-        setApiLive(health);
-        setApiMessage("Backend API live");
-        setTasks(plan.tasks);
-        setSettings(apiSettings);
-        setVocabularyItems(apiVocabulary);
-        setMistakeItems(apiMistakes);
-        setResourceItems(apiResources);
-        setProgressPoints(weeklyProgress.points);
-      } catch (error) {
-        if (cancelled) {
-          return;
-        }
-
-        console.error(error);
-        setApiLive(false);
-        setApiMessage("Backend offline, using local fallback data");
-      }
+      setApiLive(health);
+      setApiMessage("Backend API live");
+      setTasks(plan.tasks);
+      setSettings(apiSettings);
+      setVocabularyItems(apiVocabulary);
+      setMistakeItems(apiMistakes);
+      setResourceItems(apiResources);
+      setProgressPoints(weeklyProgress.points);
+    } catch (error) {
+      console.error(error);
+      setApiLive(false);
+      setApiMessage("Backend offline, using local fallback data");
+    } finally {
+      setIsSyncing(false);
     }
-
-    void loadBackendData();
-
-    return () => {
-      cancelled = true;
-    };
   }, []);
+
+  useEffect(() => {
+    void loadBackendData();
+  }, [loadBackendData]);
 
   const toggleTask = async (taskId: string) => {
     const currentTask = tasks.find((task) => task.id === taskId);
@@ -426,6 +417,10 @@ export default function Home() {
             <span className={`pill ${apiLive ? "api-live" : "api-offline"}`}>
               {apiMessage}
             </span>
+            <button className="secondary-button" type="button" onClick={() => void loadBackendData()}>
+              <RotateCw size={15} aria-hidden="true" />
+              {isSyncing ? "Syncing" : "Sync API"}
+            </button>
           </div>
         </header>
 
