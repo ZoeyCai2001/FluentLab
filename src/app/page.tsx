@@ -57,6 +57,44 @@ import type {
   VocabularyItem,
 } from "@/lib/types";
 
+type BrowserSpeechRecognitionResult = {
+  isFinal: boolean;
+  0?: {
+    transcript: string;
+  };
+};
+
+type BrowserSpeechRecognitionEvent = Event & {
+  results: {
+    length: number;
+    [index: number]: BrowserSpeechRecognitionResult;
+  };
+};
+
+type BrowserSpeechRecognitionErrorEvent = Event & {
+  error?: string;
+};
+
+type BrowserSpeechRecognition = {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onend: (() => void) | null;
+  onerror: ((event: BrowserSpeechRecognitionErrorEvent) => void) | null;
+  onresult: ((event: BrowserSpeechRecognitionEvent) => void) | null;
+  start: () => void;
+  stop: () => void;
+};
+
+type BrowserSpeechRecognitionConstructor = new () => BrowserSpeechRecognition;
+
+declare global {
+  interface Window {
+    SpeechRecognition?: BrowserSpeechRecognitionConstructor;
+    webkitSpeechRecognition?: BrowserSpeechRecognitionConstructor;
+  }
+}
+
 type View =
   | "dashboard"
   | "listening"
@@ -180,6 +218,9 @@ export default function Home() {
   const [speakingFeedback, setSpeakingFeedback] = useState<string[]>([]);
   const [speakingExpressions, setSpeakingExpressions] = useState<string[]>([]);
   const [isPolishing, setIsPolishing] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [speechRecognitionSupported, setSpeechRecognitionSupported] = useState(false);
+  const [transcriptionStatus, setTranscriptionStatus] = useState("Speech-to-text ready");
   const [draft, setDraft] = useState(
     "My research is about understanding why machine learning algorithms work. This problem is important because many methods perform well, but the theory is not always clear. I want to study conditions that can explain generalization better.",
   );
@@ -191,7 +232,9 @@ export default function Home() {
   const [isReviewingWriting, setIsReviewingWriting] = useState(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const transcriptRef = useRef(transcript);
 
   const dailyTarget = settings.dailyStudyTargetMinutes;
   const chineseOptional = settings.chineseExplanations !== "hidden";
@@ -249,6 +292,21 @@ export default function Home() {
     void loadBackendData();
   }, [loadBackendData]);
 
+  useEffect(() => {
+    transcriptRef.current = transcript;
+  }, [transcript]);
+
+  useEffect(() => {
+    setSpeechRecognitionSupported(Boolean(window.SpeechRecognition ?? window.webkitSpeechRecognition));
+
+    return () => {
+      recognitionRef.current?.stop();
+      if (mediaRecorderRef.current?.state === "recording") {
+        mediaRecorderRef.current.stop();
+      }
+    };
+  }, []);
+
   const toggleTask = async (taskId: string) => {
     const currentTask = tasks.find((task) => task.id === taskId);
     if (!currentTask) {
@@ -279,11 +337,18 @@ export default function Home() {
 
   const startRecording = async () => {
     if (!navigator.mediaDevices?.getUserMedia) {
+      setTranscriptionStatus("Microphone unavailable");
       return;
     }
 
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     chunksRef.current = [];
+    setTranscript("");
+    setShowPolish(false);
+    setSpeakingFeedback([]);
+    setSpeakingExpressions([]);
+    setTranscriptionStatus("Recording");
+
     const recorder = new MediaRecorder(stream);
 
     recorder.ondataavailable = (event) => {
@@ -296,16 +361,67 @@ export default function Home() {
       const blob = new Blob(chunksRef.current, { type: "audio/webm" });
       setAudioUrl(URL.createObjectURL(blob));
       stream.getTracks().forEach((track) => track.stop());
+      if (transcriptRef.current.trim()) {
+        setTranscriptionStatus("Transcript captured");
+      } else {
+        setTranscriptionStatus("No transcript captured; edit manually");
+      }
     };
 
     mediaRecorderRef.current = recorder;
     recorder.start();
+    startBrowserTranscription();
     setIsRecording(true);
   };
 
   const stopRecording = () => {
+    recognitionRef.current?.stop();
     mediaRecorderRef.current?.stop();
     setIsRecording(false);
+    setIsTranscribing(false);
+  };
+
+  const startBrowserTranscription = () => {
+    const Recognition = window.SpeechRecognition ?? window.webkitSpeechRecognition;
+
+    if (!Recognition) {
+      setTranscriptionStatus("Browser speech-to-text unavailable");
+      return;
+    }
+
+    const recognition = new Recognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = "en-US";
+    recognition.onresult = (event) => {
+      const text = Array.from({ length: event.results.length }, (_, index) => event.results[index]?.[0]?.transcript ?? "")
+        .join(" ")
+        .replace(/\s+/g, " ")
+        .trim();
+
+      if (text) {
+        setTranscript(text);
+        setTranscriptionStatus("Live transcript active");
+      }
+    };
+    recognition.onerror = (event) => {
+      setIsTranscribing(false);
+      setTranscriptionStatus(event.error ? `Speech-to-text error: ${event.error}` : "Speech-to-text stopped");
+    };
+    recognition.onend = () => {
+      setIsTranscribing(false);
+    };
+
+    try {
+      recognition.start();
+      recognitionRef.current = recognition;
+      setIsTranscribing(true);
+      setTranscriptionStatus("Listening for speech");
+    } catch (error) {
+      console.error(error);
+      setIsTranscribing(false);
+      setTranscriptionStatus("Speech-to-text could not start");
+    }
   };
 
   const speakPolishedVersion = () => {
@@ -500,6 +616,7 @@ export default function Home() {
             feedback={speakingFeedback}
             isRecording={isRecording}
             isPolishing={isPolishing}
+            isTranscribing={isTranscribing}
             onPolish={requestSpeakingPolish}
             onSelectTopic={setSelectedTopic}
             onSpeak={speakPolishedVersion}
@@ -508,8 +625,10 @@ export default function Home() {
             polishedVisible={showPolish}
             polishedVersion={polishedVersion}
             selectedTopic={selectedTopic}
+            speechRecognitionSupported={speechRecognitionSupported}
             topics={dailySpeakingTopics}
             transcript={transcript}
+            transcriptionStatus={transcriptionStatus}
             usefulExpressions={speakingExpressions}
             onTranscriptChange={setTranscript}
           />
@@ -760,6 +879,7 @@ function SpeakingView({
   feedback,
   isRecording,
   isPolishing,
+  isTranscribing,
   onPolish,
   onSelectTopic,
   onSpeak,
@@ -768,8 +888,10 @@ function SpeakingView({
   polishedVisible,
   polishedVersion,
   selectedTopic,
+  speechRecognitionSupported,
   topics,
   transcript,
+  transcriptionStatus,
   usefulExpressions,
   onTranscriptChange,
 }: {
@@ -777,6 +899,7 @@ function SpeakingView({
   feedback: string[];
   isRecording: boolean;
   isPolishing: boolean;
+  isTranscribing: boolean;
   onPolish: () => void | Promise<void>;
   onSelectTopic: (topic: string) => void;
   onSpeak: () => void;
@@ -785,8 +908,10 @@ function SpeakingView({
   polishedVisible: boolean;
   polishedVersion: string;
   selectedTopic: string;
+  speechRecognitionSupported: boolean;
   topics: string[];
   transcript: string;
+  transcriptionStatus: string;
   usefulExpressions: string[];
   onTranscriptChange: (value: string) => void;
 }) {
@@ -814,8 +939,12 @@ function SpeakingView({
 
           <div className="recording-meter">
             <div>
-              <strong>{isRecording ? "Recording" : "Ready"}</strong>
-              <p className="task-detail">Target structure: context, main point, one example, closing sentence.</p>
+              <strong>
+                {isRecording ? (isTranscribing ? "Recording + transcribing" : "Recording") : "Ready"}
+              </strong>
+              <p className="task-detail">
+                {speechRecognitionSupported ? transcriptionStatus : "Manual transcript fallback"}
+              </p>
             </div>
             <div className="meter-dots" aria-hidden="true">
               {[0, 1, 2, 3, 4].map((dot) => (
@@ -840,10 +969,7 @@ function SpeakingView({
               <audio controls src={audioUrl} aria-label="Recorded speaking attempt">
                 <track kind="captions" />
               </audio>
-              <p className="task-detail">
-                Voice-to-text will use local whisper.cpp transcription. Until that service is wired in, edit
-                or paste the transcript below before polishing.
-              </p>
+              <p className="task-detail">{transcriptionStatus}</p>
             </div>
           )}
         </div>
@@ -853,6 +979,7 @@ function SpeakingView({
         <div className="panel-header">
           <h3 className="panel-title">Transcript and Polish</h3>
           <div className="top-actions">
+            <span className={`tag ${isTranscribing ? "skill-Speaking" : ""}`}>{transcriptionStatus}</span>
             <button className="secondary-button" type="button" onClick={() => void onPolish()}>
               <Wand2 size={16} aria-hidden="true" />
               {isPolishing ? "Polishing" : "Polish"}

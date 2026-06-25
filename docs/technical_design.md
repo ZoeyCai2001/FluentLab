@@ -434,8 +434,8 @@ Use `whisper.cpp` as the selected speech-to-text provider for cost and privacy.
 Initial MVP:
 
 - Record and replay audio in the browser.
-- Let the learner type or paste a transcript manually before local transcription is integrated.
-- Clearly label local `whisper.cpp` voice-to-text as the next transcription step after recording.
+- Start browser speech recognition while recording when the current browser exposes the Web Speech API.
+- Keep the transcript editable so the learner can correct recognition errors or paste text if browser speech recognition is unavailable.
 - Use browser `SpeechSynthesis` for free text-to-speech playback where acceptable.
 
 Selected transcription integration:
@@ -443,6 +443,7 @@ Selected transcription integration:
 - Use local Whisper through `whisper.cpp`, especially because the target machine is Apple Silicon.
 - Start with a small or base English model for fast feedback.
 - Keep `faster-whisper` only as a Python-native backup if `whisper.cpp` integration becomes awkward.
+- Promote `whisper.cpp` from provider strategy to backend transcription only after the local binary and model path are configured.
 
 Cloud fallback:
 
@@ -526,15 +527,15 @@ Milestone 1: Design foundation.
 Milestone 2: Frontend MVP shell.
 
 - Create Next.js app.
-- Build app shell, navigation, dashboard, daily plan, and mock task data.
+- Build app shell, navigation, dashboard-owned daily plan, and mock task data.
 - Add module placeholder pages with realistic workflows.
 
 Milestone 3: Practice workflows with mock feedback.
 
 - Writing Studio with draft/revision state.
-- Speaking Room with recording UI or text fallback.
+- Speaking Room with recording UI, browser speech recognition, and text fallback.
 - Mistake Notebook with seeded examples.
-- Progress Report with mock analytics.
+- Dashboard-embedded progress report with mock analytics.
 
 Milestone 4: Backend MVP.
 

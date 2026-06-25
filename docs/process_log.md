@@ -91,3 +91,10 @@ Product structure refinement request:
 - User asked Writing Studio to include a polish feature.
 - User asked Reading Digest to provide resources such as news or daily digest text.
 - User asked Vocabulary Bank to provide daily word and phrase learning, and to send hard-to-remember words or phrases to Mistake Notebook.
+
+Speech-to-text follow-up:
+
+- Goal audit showed that Speaking Room still needed an actual voice-to-text attempt after recording, not only a note about future `whisper.cpp` integration.
+- Implemented browser speech recognition as the first free in-app transcription path while recording.
+- Kept the transcript editable so the learner can correct recognition errors or manually enter text when the browser speech API is unavailable.
+- Kept `whisper.cpp` as the selected fully local transcription provider for the next backend milestone.

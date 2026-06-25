@@ -7,10 +7,11 @@
 
 Use `whisper.cpp` as the selected speech-to-text provider, with a local-first speech strategy.
 
-1. MVP speaking UX starts with browser audio recording and optional manual transcript input.
+1. MVP speaking UX starts with browser audio recording plus browser speech recognition when available.
 2. MVP listening playback starts with stored audio links or browser text-to-speech for generated practice text.
-3. The first real speech-to-text integration is local Whisper through `whisper.cpp` on Apple Silicon.
-4. Cloud speech-to-text remains an optional fallback, not the default path.
+3. Manual transcript editing stays available because browser speech recognition varies by browser and platform.
+4. The first fully local speech-to-text integration is local Whisper through `whisper.cpp` on Apple Silicon.
+5. Cloud speech-to-text remains an optional fallback, not the default path.
 
 This matches the product constraints:
 
@@ -42,7 +43,8 @@ Cons:
 Use in FluentLab:
 
 - Use `SpeechSynthesis` for free text-to-speech in early listening exercises.
-- Treat browser `SpeechRecognition` as an optional convenience, not a required dependency.
+- Use browser `SpeechRecognition` as the first no-cost in-app transcription path where available.
+- Keep manual transcript editing and local `whisper.cpp` as the reliability and privacy path.
 
 ### whisper.cpp
 
@@ -167,7 +169,7 @@ Use in FluentLab:
 
 ## Recommended Implementation Order
 
-1. Build speaking tasks with record, replay, and manual transcript input.
+1. Build speaking tasks with record, replay, browser speech recognition, and manual transcript input.
 2. Build listening tasks with static audio links and browser text-to-speech.
 3. Add local `whisper.cpp` transcription as the selected local service.
 4. Feed transcripts to Kimi for learning feedback, mistake extraction, useful expressions, and a polished read-after version.
