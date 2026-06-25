@@ -14,8 +14,8 @@ export const initialTasks: LearningTask[] = [
   },
   {
     id: "listen-housing",
-    title: "Listen to an apartment repair dialogue",
-    module: "Listening Lab",
+    title: "Listen to a short daily English audio",
+    module: "Listening Corner",
     skill: "Listening",
     difficulty: "B1",
     minutes: 12,
@@ -36,8 +36,8 @@ export const initialTasks: LearningTask[] = [
   },
   {
     id: "read-abstract",
-    title: "Read and summarize an AI theory abstract",
-    module: "Reading Hub",
+    title: "Read and summarize a daily news digest",
+    module: "Reading Digest",
     skill: "Reading",
     difficulty: "B2",
     minutes: 10,
@@ -129,12 +129,44 @@ export const resources: ResourceItem[] = [
     url: "https://ocw.mit.edu",
   },
   {
+    id: "ted-ed",
+    title: "Short animated explainers for shadowing",
+    source: "TED-Ed",
+    type: "Video",
+    skill: "Listening",
+    url: "https://ed.ted.com/lessons",
+  },
+  {
+    id: "nasa-podcasts",
+    title: "Science podcasts with clear topic focus",
+    source: "NASA",
+    type: "Podcast",
+    skill: "Listening",
+    url: "https://www.nasa.gov/podcasts/",
+  },
+  {
     id: "arxiv-abstracts",
     title: "Recent paper abstracts for summary practice",
     source: "arXiv",
     type: "Article",
     skill: "Reading",
     url: "https://arxiv.org",
+  },
+  {
+    id: "news-in-levels",
+    title: "Daily leveled news for reading summaries",
+    source: "News in Levels",
+    type: "Article",
+    skill: "Reading",
+    url: "https://www.newsinlevels.com/",
+  },
+  {
+    id: "conversation-science",
+    title: "Readable research and science articles",
+    source: "The Conversation",
+    type: "Article",
+    skill: "Reading",
+    url: "https://theconversation.com/us",
   },
   {
     id: "youglish",
@@ -164,9 +196,29 @@ export const progress: ProgressPoint[] = [
   { label: "Sun", minutes: 0, completed: 0 },
 ];
 
-export const speakingTopics = [
-  "Explain your research direction to a new lab member.",
-  "Describe a housing repair issue to a landlord.",
-  "Summarize one paper you read this week.",
-  "Ask a question after a seminar about a theorem assumption.",
+export const dailySpeakingTopicSets = [
+  [
+    "Explain your research direction to a new lab member.",
+    "Describe a housing repair issue to a landlord.",
+    "Summarize one paper you read this week.",
+    "Ask a question after a seminar about a theorem assumption.",
+  ],
+  [
+    "Introduce yourself to a visiting professor after a seminar.",
+    "Explain why your research problem matters in three minutes.",
+    "Describe a daily inconvenience and ask for help clearly.",
+    "Give a short update about what you finished this week.",
+  ],
+  [
+    "Compare two paper assumptions and explain which one is stronger.",
+    "Describe your ideal research routine to a new classmate.",
+    "Ask a polite follow-up question after a confusing talk.",
+    "Explain one theorem intuition without using formulas.",
+  ],
 ];
+
+export function getDailySpeakingTopics(now = new Date()) {
+  const start = new Date(now.getFullYear(), 0, 0);
+  const dayIndex = Math.floor((now.getTime() - start.getTime()) / 86_400_000);
+  return dailySpeakingTopicSets[dayIndex % dailySpeakingTopicSets.length];
+}

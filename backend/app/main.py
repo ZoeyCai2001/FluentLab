@@ -100,6 +100,13 @@ def create_app(data_path: Path | None = None) -> FastAPI:
     def get_mistakes(store: JsonStateStore = Depends(get_store)) -> list[Mistake]:
         return store.load().mistakes
 
+    @app.post("/api/mistakes", response_model=list[Mistake])
+    def add_mistake(
+        mistake: Mistake,
+        store: JsonStateStore = Depends(get_store),
+    ) -> list[Mistake]:
+        return store.add_mistake(mistake)
+
     @app.get("/api/resources", response_model=list[ResourceItem])
     def get_resources(store: JsonStateStore = Depends(get_store)) -> list[ResourceItem]:
         return store.load().resources

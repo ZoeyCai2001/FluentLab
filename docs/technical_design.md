@@ -21,6 +21,11 @@ The first implementation goal is not to build a large course platform. The first
 - Prefer free and open learning sources.
 - Prefer local/free speech tooling before paid cloud speech APIs.
 - Use LLM-generated and LLM-assisted vocabulary content, but save selected items into a stable review bank.
+- Dashboard is the one-stop operating screen: it owns today's tasks and the embedded progress report.
+- Remove separate Daily Plan and Progress Report navigation entries.
+- Main module navigation should be Dashboard, Listening Corner, Speaking Room, Writing Studio, Reading Digest, Vocabulary Bank, Mistake Notebook, Resource Center, and Settings.
+- Daily task Start buttons should open the corresponding module page.
+- Vocabulary items marked as hard should become Mistake Notebook review items.
 
 ## 2. Product Shape
 
@@ -29,17 +34,15 @@ FluentLab should feel like a focused learning workspace, not a marketing site or
 Primary MVP surfaces:
 
 1. Home Dashboard
-2. Onboarding and Diagnostic
-3. Daily Plan
-4. Reading Hub
-5. Listening Lab
-6. Speaking Room
-7. Writing Studio
-8. Vocabulary Bank
-9. Mistake Notebook
-10. Progress Report
-11. Resource Center
-12. Settings
+2. Listening Corner
+3. Speaking Room
+4. Writing Studio
+5. Reading Digest
+6. Vocabulary Bank
+7. Mistake Notebook
+8. Resource Center
+9. Settings
+10. Onboarding and Diagnostic later
 
 ## 3. MVP Architecture
 
@@ -398,6 +401,8 @@ Feedback must be:
 
 The primary speaking practice pattern is a focused monologue loop. The system gives the learner a topic, the learner speaks for about three minutes, the app transcribes the recording, and the LLM produces a clearer polished version that the learner can read after and shadow.
 
+Speaking topics should rotate daily so the learner does not repeat the same prompts every day.
+
 Target flow:
 
 1. User opens a speaking task.
@@ -430,6 +435,7 @@ Initial MVP:
 
 - Record and replay audio in the browser.
 - Let the learner type or paste a transcript manually before local transcription is integrated.
+- Clearly label local `whisper.cpp` voice-to-text as the next transcription step after recording.
 - Use browser `SpeechSynthesis` for free text-to-speech playback where acceptable.
 
 Selected transcription integration:

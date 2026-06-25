@@ -78,3 +78,16 @@ Frontend-backend integration update:
 - Speaking polish and Writing Studio review buttons now call backend feedback endpoints and render backend-returned feedback.
 - Frontend top bar now shows backend API status.
 - Local backend dev port was standardized to `8001` because `8000` was already occupied on the user's machine.
+
+Product structure refinement request:
+
+- User asked to remove the separate Daily Plan page because the dashboard already contains the same task list.
+- User asked to remove the separate Progress Report page and place progress at the bottom of Dashboard.
+- User asked for module navigation to become Dashboard, Listening Corner, Speaking Room, Writing Studio, Reading Digest, Vocabulary Bank, Mistake Notebook, Resource Center, and Settings.
+- User asked for every task Start button to navigate to the corresponding module.
+- User asked to remove the Dashboard review queue, add progress report, and show a celebration effect when all daily tasks are checked.
+- User asked Listening Corner to focus on open/free listening videos and audio.
+- User asked Speaking Room to support daily-changing topics and acknowledged that recorded speech should later be transcribed to text.
+- User asked Writing Studio to include a polish feature.
+- User asked Reading Digest to provide resources such as news or daily digest text.
+- User asked Vocabulary Bank to provide daily word and phrase learning, and to send hard-to-remember words or phrases to Mistake Notebook.

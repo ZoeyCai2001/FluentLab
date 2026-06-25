@@ -1,17 +1,17 @@
 "use client";
 
 import {
-  BarChart3,
   BookOpen,
   CalendarDays,
   Check,
   ChevronRight,
   Circle,
-  ClipboardList,
   FileText,
   Gauge,
+  Headphones,
   Library,
   Mic,
+  Newspaper,
   NotebookTabs,
   Play,
   RefreshCcw,
@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  addMistake,
   getHealth,
   getMistakes,
   getResources,
@@ -37,12 +38,13 @@ import {
   updateSettings,
   updateTaskStatus,
 } from "@/lib/api";
+import type { CSSProperties } from "react";
 import {
   initialTasks,
   mistakes as fallbackMistakes,
   progress as fallbackProgress,
   resources as fallbackResources,
-  speakingTopics,
+  getDailySpeakingTopics,
   vocabulary as fallbackVocabulary,
 } from "@/lib/seed-data";
 import type {
@@ -57,12 +59,12 @@ import type {
 
 type View =
   | "dashboard"
-  | "daily-plan"
+  | "listening"
   | "speaking"
   | "writing"
+  | "reading"
   | "vocabulary"
   | "mistakes"
-  | "progress"
   | "resources"
   | "settings";
 
@@ -74,12 +76,12 @@ type NavItem = {
 
 const navItems: NavItem[] = [
   { id: "dashboard", label: "Dashboard", icon: Gauge },
-  { id: "daily-plan", label: "Daily Plan", icon: ClipboardList },
+  { id: "listening", label: "Listening Corner", icon: Headphones },
   { id: "speaking", label: "Speaking Room", icon: Mic },
   { id: "writing", label: "Writing Studio", icon: FileText },
+  { id: "reading", label: "Reading Digest", icon: Newspaper },
   { id: "vocabulary", label: "Vocabulary Bank", icon: BookOpen },
   { id: "mistakes", label: "Mistake Notebook", icon: NotebookTabs },
-  { id: "progress", label: "Progress Report", icon: BarChart3 },
   { id: "resources", label: "Resource Center", icon: Library },
   { id: "settings", label: "Settings", icon: Settings },
 ];
@@ -100,10 +102,10 @@ const pageMeta: Record<View, { eyebrow: string; title: string; copy: string }> =
     title: "What should I learn today?",
     copy: "A 60-minute plan balanced around active speaking, listening, writing, vocabulary, and academic output.",
   },
-  "daily-plan": {
-    eyebrow: "Plan",
-    title: "Daily Learning Plan",
-    copy: "Each task has a measurable output so learning does not stay passive.",
+  listening: {
+    eyebrow: "Listening",
+    title: "Listening Corner",
+    copy: "Open audio and video practice for daily life, academic talks, dictation, and shadowing.",
   },
   speaking: {
     eyebrow: "Speaking",
@@ -113,7 +115,12 @@ const pageMeta: Record<View, { eyebrow: string; title: string; copy: string }> =
   writing: {
     eyebrow: "Writing",
     title: "Writing Studio",
-    copy: "Write first, then compare a focused revision against the original draft.",
+    copy: "Write first, then polish the draft with focused feedback and reusable expressions.",
+  },
+  reading: {
+    eyebrow: "Reading",
+    title: "Reading Digest",
+    copy: "Daily news, short articles, and digest-style reading with active summary practice.",
   },
   vocabulary: {
     eyebrow: "Vocabulary",
@@ -124,11 +131,6 @@ const pageMeta: Record<View, { eyebrow: string; title: string; copy: string }> =
     eyebrow: "Review",
     title: "Mistake Notebook",
     copy: "Recurring mistakes are saved as review items with corrections and next actions.",
-  },
-  progress: {
-    eyebrow: "Progress",
-    title: "Weekly Progress",
-    copy: "Track study time, task completion, streak, and skill balance.",
   },
   resources: {
     eyebrow: "Sources",
@@ -168,7 +170,8 @@ export default function Home() {
   const [apiLive, setApiLive] = useState(false);
   const [apiMessage, setApiMessage] = useState("Loading backend data...");
   const [isSyncing, setIsSyncing] = useState(false);
-  const [selectedTopic, setSelectedTopic] = useState(speakingTopics[0]);
+  const dailySpeakingTopics = useMemo(() => getDailySpeakingTopics(), []);
+  const [selectedTopic, setSelectedTopic] = useState(dailySpeakingTopics[0]);
   const [isRecording, setIsRecording] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [transcript, setTranscript] = useState(sampleTranscript);
@@ -369,6 +372,54 @@ export default function Home() {
     }
   };
 
+  const markVocabularyForReview = async (item: VocabularyItem) => {
+    const mistake: Mistake = {
+      id: `vocab-${item.id}`,
+      skill: "Vocabulary",
+      original: item.phrase,
+      correction: item.example,
+      note: `Marked as hard from Vocabulary Bank. Meaning: ${item.meaning}`,
+      status: "new",
+    };
+
+    setMistakeItems((current) => {
+      if (current.some((existing) => existing.id === mistake.id)) {
+        return current;
+      }
+      return [...current, mistake];
+    });
+
+    try {
+      const saved = await addMistake(mistake);
+      setMistakeItems(saved);
+      setApiLive(true);
+      setApiMessage("Backend API live");
+    } catch (error) {
+      console.error(error);
+      setApiLive(false);
+      setApiMessage("Could not save vocabulary review item");
+    }
+  };
+
+  const getTaskView = (task: LearningTask): View => {
+    if (task.skill === "Listening") {
+      return "listening";
+    }
+    if (task.skill === "Speaking") {
+      return "speaking";
+    }
+    if (task.skill === "Writing") {
+      return "writing";
+    }
+    if (task.skill === "Reading") {
+      return "reading";
+    }
+    if (task.skill === "Vocabulary") {
+      return "vocabulary";
+    }
+    return "dashboard";
+  };
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -433,14 +484,14 @@ export default function Home() {
             skillMinutes={skillMinutes}
             tasks={tasks}
             totalMinutes={totalMinutes}
-            mistakes={mistakeItems}
-            onOpenPlan={() => setActiveView("daily-plan")}
+            progress={progressPoints}
+            onStartTask={(task) => setActiveView(getTaskView(task))}
             onToggleTask={toggleTask}
           />
         )}
 
-        {activeView === "daily-plan" && (
-          <DailyPlanView tasks={tasks} onToggleTask={toggleTask} />
+        {activeView === "listening" && (
+          <ListeningView resources={resourceItems} tasks={tasks.filter((task) => task.skill === "Listening")} />
         )}
 
         {activeView === "speaking" && (
@@ -457,6 +508,7 @@ export default function Home() {
             polishedVisible={showPolish}
             polishedVersion={polishedVersion}
             selectedTopic={selectedTopic}
+            topics={dailySpeakingTopics}
             transcript={transcript}
             usefulExpressions={speakingExpressions}
             onTranscriptChange={setTranscript}
@@ -476,9 +528,13 @@ export default function Home() {
           />
         )}
 
-        {activeView === "vocabulary" && <VocabularyView vocabulary={vocabularyItems} />}
+        {activeView === "reading" && (
+          <ReadingView resources={resourceItems} tasks={tasks.filter((task) => task.skill === "Reading")} />
+        )}
+        {activeView === "vocabulary" && (
+          <VocabularyView vocabulary={vocabularyItems} onNeedReview={markVocabularyForReview} />
+        )}
         {activeView === "mistakes" && <MistakesView mistakes={mistakeItems} />}
-        {activeView === "progress" && <ProgressView progress={progressPoints} />}
         {activeView === "resources" && <ResourcesView resources={resourceItems} />}
         {activeView === "settings" && (
           <SettingsView
@@ -507,26 +563,29 @@ function DashboardView({
   completedTasks,
   dailyTarget,
   planProgress,
+  progress,
   skillMinutes,
   tasks,
   totalMinutes,
-  mistakes,
-  onOpenPlan,
+  onStartTask,
   onToggleTask,
 }: {
   completedMinutes: number;
   completedTasks: number;
   dailyTarget: number;
   planProgress: number;
+  progress: ProgressPoint[];
   skillMinutes: Partial<Record<Skill, number>>;
   tasks: LearningTask[];
   totalMinutes: number;
-  mistakes: Mistake[];
-  onOpenPlan: () => void;
+  onStartTask: (task: LearningTask) => void;
   onToggleTask: (taskId: string) => void | Promise<void>;
 }) {
+  const showCelebration = tasks.length > 0 && completedTasks === tasks.length;
+
   return (
     <div>
+      {showCelebration && <Celebration />}
       <section className="metric-grid" aria-label="Daily summary">
         <Metric label="Done today" value={`${completedTasks}/${tasks.length}`} />
         <Metric label="Study minutes" value={`${completedMinutes}/${dailyTarget}`} />
@@ -538,12 +597,10 @@ function DashboardView({
         <section className="panel">
           <div className="panel-header">
             <h3 className="panel-title">Today&apos;s Plan</h3>
-            <button className="secondary-button" type="button" onClick={onOpenPlan}>
-              Open <ChevronRight size={16} aria-hidden="true" />
-            </button>
+            <span className="tag">{totalMinutes} minutes</span>
           </div>
           <div className="panel-body">
-            <TaskList tasks={tasks} onToggleTask={onToggleTask} />
+            <TaskList tasks={tasks} onStartTask={onStartTask} onToggleTask={onToggleTask} />
           </div>
         </section>
 
@@ -566,44 +623,135 @@ function DashboardView({
               </div>
             </div>
           </section>
-
-          <section className="panel">
-            <div className="panel-header">
-              <h3 className="panel-title">Review Queue</h3>
-              <span className="tag">{mistakes.length} items</span>
-            </div>
-            <div className="panel-body stack">
-              {mistakes.slice(0, 2).map((item) => (
-                <div className="mistake-item" key={item.id}>
-                  <span className={`tag skill-${item.skill}`}>{item.skill}</span>
-                  <p>{item.correction}</p>
-                </div>
-              ))}
-            </div>
-          </section>
         </div>
+      </div>
+
+      <div className="dashboard-progress">
+        <ProgressView progress={progress} />
       </div>
     </div>
   );
 }
 
-function DailyPlanView({
+function ListeningView({
+  resources,
   tasks,
-  onToggleTask,
 }: {
+  resources: ResourceItem[];
   tasks: LearningTask[];
-  onToggleTask: (taskId: string) => void | Promise<void>;
 }) {
+  const listeningResources = resources.filter((resource) => resource.skill === "Listening");
+
   return (
-    <section className="panel">
-      <div className="panel-header">
-        <h3 className="panel-title">Task Queue</h3>
-        <span className="tag">{tasks.reduce((sum, task) => sum + task.minutes, 0)} minutes</span>
-      </div>
-      <div className="panel-body">
-        <TaskList tasks={tasks} onToggleTask={onToggleTask} expanded />
-      </div>
-    </section>
+    <div className="stack">
+      <section className="panel">
+        <div className="panel-header">
+          <h3 className="panel-title">Today&apos;s Listening Work</h3>
+          <span className="tag skill-Listening">{tasks.length} tasks</span>
+        </div>
+        <div className="panel-body two-column">
+          {tasks.map((task) => (
+            <article className="mistake-item" key={task.id}>
+              <span className={`tag skill-${task.skill}`}>{task.skill}</span>
+              <h3 className="task-title">{task.title}</h3>
+              <p>{task.goal}</p>
+              <p>Output: {task.output}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="panel">
+        <div className="panel-header">
+          <h3 className="panel-title">Open Listening Sources</h3>
+          <span className="tag">audio/video</span>
+        </div>
+        <div className="panel-body two-column">
+          {listeningResources.map((item) => (
+            <article className="resource-item" key={item.id}>
+              <div className="task-meta">
+                <span className={`tag skill-${item.skill}`}>{item.skill}</span>
+                <span className="tag">{item.type}</span>
+              </div>
+              <h3 className="task-title">{item.title}</h3>
+              <p>{item.source}</p>
+              <a className="secondary-button" href={item.url} target="_blank" rel="noreferrer">
+                Open <ChevronRight size={16} aria-hidden="true" />
+              </a>
+            </article>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function ReadingView({
+  resources,
+  tasks,
+}: {
+  resources: ResourceItem[];
+  tasks: LearningTask[];
+}) {
+  const readingResources = resources.filter((resource) => resource.skill === "Reading");
+
+  return (
+    <div className="stack">
+      <section className="panel">
+        <div className="panel-header">
+          <h3 className="panel-title">Today&apos;s Reading Digest</h3>
+          <span className="tag skill-Reading">{tasks.length} tasks</span>
+        </div>
+        <div className="panel-body two-column">
+          {tasks.map((task) => (
+            <article className="mistake-item" key={task.id}>
+              <span className={`tag skill-${task.skill}`}>{task.skill}</span>
+              <h3 className="task-title">{task.title}</h3>
+              <p>{task.goal}</p>
+              <p>Output: {task.output}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="panel">
+        <div className="panel-header">
+          <h3 className="panel-title">Daily Reading Sources</h3>
+          <span className="tag">news/digest</span>
+        </div>
+        <div className="panel-body two-column">
+          {readingResources.map((item) => (
+            <article className="resource-item" key={item.id}>
+              <div className="task-meta">
+                <span className={`tag skill-${item.skill}`}>{item.skill}</span>
+                <span className="tag">{item.type}</span>
+              </div>
+              <h3 className="task-title">{item.title}</h3>
+              <p>{item.source}</p>
+              <a className="secondary-button" href={item.url} target="_blank" rel="noreferrer">
+                Open <ChevronRight size={16} aria-hidden="true" />
+              </a>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="panel">
+        <div className="panel-header">
+          <h3 className="panel-title">Pure Text Digest</h3>
+          <span className="tag skill-Reading">summary practice</span>
+        </div>
+        <div className="panel-body">
+          <div className="text-box">
+            A university research group released a short update about improving the reliability of
+            machine learning systems. The team emphasized that practical progress depends not only on
+            larger models, but also on clearer evaluation, stronger theoretical explanations, and
+            careful communication between researchers. For today&apos;s practice, summarize the update in
+            three sentences and write one follow-up question you could ask in a meeting.
+          </div>
+        </div>
+      </section>
+    </div>
   );
 }
 
@@ -620,6 +768,7 @@ function SpeakingView({
   polishedVisible,
   polishedVersion,
   selectedTopic,
+  topics,
   transcript,
   usefulExpressions,
   onTranscriptChange,
@@ -636,6 +785,7 @@ function SpeakingView({
   polishedVisible: boolean;
   polishedVersion: string;
   selectedTopic: string;
+  topics: string[];
   transcript: string;
   usefulExpressions: string[];
   onTranscriptChange: (value: string) => void;
@@ -656,7 +806,7 @@ function SpeakingView({
               value={selectedTopic}
               onChange={(event) => onSelectTopic(event.target.value)}
             >
-              {speakingTopics.map((topic) => (
+              {topics.map((topic) => (
                 <option key={topic}>{topic}</option>
               ))}
             </select>
@@ -686,9 +836,15 @@ function SpeakingView({
           </div>
 
           {audioUrl && (
-            <audio controls src={audioUrl} aria-label="Recorded speaking attempt">
-              <track kind="captions" />
-            </audio>
+            <div className="stack">
+              <audio controls src={audioUrl} aria-label="Recorded speaking attempt">
+                <track kind="captions" />
+              </audio>
+              <p className="task-detail">
+                Voice-to-text will use local whisper.cpp transcription. Until that service is wired in, edit
+                or paste the transcript below before polishing.
+              </p>
+            </div>
           )}
         </div>
       </section>
@@ -786,7 +942,7 @@ function WritingView({
           <h3 className="panel-title">Draft and Revision</h3>
           <button className="secondary-button" type="button" onClick={() => void onReview()}>
             <RefreshCcw size={16} aria-hidden="true" />
-            {isReviewing ? "Reviewing" : "Review"}
+            {isReviewing ? "Polishing" : "Polish"}
           </button>
         </div>
         <div className="panel-body compare-grid">
@@ -837,7 +993,13 @@ function WritingView({
   );
 }
 
-function VocabularyView({ vocabulary }: { vocabulary: VocabularyItem[] }) {
+function VocabularyView({
+  vocabulary,
+  onNeedReview,
+}: {
+  vocabulary: VocabularyItem[];
+  onNeedReview: (item: VocabularyItem) => void | Promise<void>;
+}) {
   return (
     <section className="panel">
       <div className="panel-header">
@@ -853,7 +1015,12 @@ function VocabularyView({ vocabulary }: { vocabulary: VocabularyItem[] }) {
             <h3 className="task-title">{item.phrase}</h3>
             <p>{item.meaning}</p>
             <p>{item.example}</p>
-            <span className="tag">Review: {item.reviewDue}</span>
+            <div className="task-meta">
+              <span className="tag">Review: {item.reviewDue}</span>
+              <button className="secondary-button" type="button" onClick={() => void onNeedReview(item)}>
+                Need review
+              </button>
+            </div>
           </article>
         ))}
       </div>
@@ -1047,6 +1214,16 @@ function Metric({ label, value }: { label: string; value: string }) {
   );
 }
 
+function Celebration() {
+  return (
+    <div className="celebration" aria-hidden="true">
+      {Array.from({ length: 18 }, (_, index) => (
+        <span key={index} style={{ "--i": index } as CSSProperties} />
+      ))}
+    </div>
+  );
+}
+
 function SkillBar({ label, max, value }: { label: string; max: number; value: number }) {
   const width = Math.min(100, Math.round((value / max) * 100));
 
@@ -1065,10 +1242,12 @@ function SkillBar({ label, max, value }: { label: string; max: number; value: nu
 
 function TaskList({
   expanded = false,
+  onStartTask,
   tasks,
   onToggleTask,
 }: {
   expanded?: boolean;
+  onStartTask: (task: LearningTask) => void;
   tasks: LearningTask[];
   onToggleTask: (taskId: string) => void | Promise<void>;
 }) {
@@ -1097,7 +1276,7 @@ function TaskList({
             {expanded && <p className="task-detail">Output: {task.output}</p>}
           </div>
 
-          <button className="secondary-button" type="button">
+          <button className="secondary-button" type="button" onClick={() => onStartTask(task)}>
             <Play size={16} aria-hidden="true" />
             Start
           </button>

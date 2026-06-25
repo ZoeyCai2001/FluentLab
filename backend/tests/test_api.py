@@ -88,3 +88,22 @@ def test_writing_feedback_returns_revision(tmp_path: Path) -> None:
     assert response.status_code == 200
     assert "developing sharper theoretical guarantees" in payload["revised_version"]
     assert payload["priority_feedback"]
+
+
+def test_vocabulary_can_create_mistake_review_item(tmp_path: Path) -> None:
+    client = make_client(tmp_path)
+
+    response = client.post(
+        "/api/mistakes",
+        json={
+            "id": "vocab-key-challenge",
+            "skill": "Vocabulary",
+            "original": "The key technical challenge is...",
+            "correction": "The key technical challenge is controlling the generalization gap.",
+            "note": "Marked as hard from Vocabulary Bank.",
+            "status": "new",
+        },
+    )
+
+    assert response.status_code == 200
+    assert any(item["id"] == "vocab-key-challenge" for item in response.json())

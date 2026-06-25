@@ -102,6 +102,13 @@ export async function getMistakes(): Promise<Mistake[]> {
   return request<Mistake[]>("/api/mistakes");
 }
 
+export async function addMistake(mistake: Mistake): Promise<Mistake[]> {
+  return request<Mistake[]>("/api/mistakes", {
+    method: "POST",
+    body: JSON.stringify(mistake),
+  });
+}
+
 export async function getResources(): Promise<ResourceItem[]> {
   return request<ResourceItem[]>("/api/resources");
 }

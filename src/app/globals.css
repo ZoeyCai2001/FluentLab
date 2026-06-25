@@ -192,6 +192,10 @@ button {
   align-items: start;
 }
 
+.dashboard-progress {
+  margin-top: 18px;
+}
+
 .panel {
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -562,6 +566,49 @@ button {
 
 .settings-row:last-child {
   border-bottom: 0;
+}
+
+.celebration {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  overflow: hidden;
+}
+
+.celebration span {
+  --i: 0;
+  position: absolute;
+  left: calc((var(--i) + 1) * 5vw);
+  top: 42px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--teal);
+  animation: firework 1300ms ease-out infinite;
+  animation-delay: calc(var(--i) * 70ms);
+}
+
+.celebration span:nth-child(3n) {
+  background: var(--amber);
+}
+
+.celebration span:nth-child(3n + 1) {
+  background: var(--rose);
+}
+
+@keyframes firework {
+  0% {
+    opacity: 0;
+    transform: translateY(0) scale(0.4);
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(calc(180px + var(--i) * 6px)) scale(1);
+  }
 }
 
 .toggle {
