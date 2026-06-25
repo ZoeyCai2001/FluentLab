@@ -396,33 +396,47 @@ Feedback must be:
 
 ## 9. Speaking Workflow
 
-MVP speaking can start with text responses and browser recording UI. Full feedback needs speech-to-text.
+The primary speaking practice pattern is a focused monologue loop. The system gives the learner a topic, the learner speaks for about three minutes, the app transcribes the recording, and the LLM produces a clearer polished version that the learner can read after and shadow.
 
 Target flow:
 
 1. User opens a speaking task.
-2. App shows scenario and speaking goal.
-3. User records an answer.
-4. Frontend uploads audio.
-5. Backend stores audio and requests transcription.
-6. LLM evaluates transcript and task context.
-7. System saves scores, feedback, useful expressions, and mistakes.
-8. User can retry the task.
+2. App shows a topic, target duration, speaking goal, and optional guiding questions.
+3. User records an approximately 3-minute answer.
+4. Frontend lets the user replay or retry before submission.
+5. Frontend uploads audio.
+6. Backend stores audio and transcribes it with local `whisper.cpp`.
+7. Backend sends the transcript and task context to Kimi.
+8. Kimi returns feedback, recurring mistakes, useful expressions, and a polished version of the speech.
+9. App shows the original transcript beside the polished version.
+10. User reads after the polished version and can record a second attempt.
+11. System saves both attempts, transcript quality notes, feedback, reusable expressions, and mistakes.
+
+Speaking task types for this loop:
+
+- Daily life monologue, such as explaining a housing problem or describing a recent day.
+- Academic monologue, such as explaining a research direction in three minutes.
+- Seminar response, such as asking or answering a question after a talk.
+- Paper summary, such as summarizing motivation, method, and limitation.
+- Meeting update, such as reporting progress and next steps.
+
+The polished version should improve clarity, naturalness, structure, and reusable expressions without making the speech too advanced to imitate.
 
 ### 9.1 Speech Provider Strategy
 
-Use a local-first strategy for cost and privacy.
+Use `whisper.cpp` as the selected speech-to-text provider for cost and privacy.
 
 Initial MVP:
 
 - Record and replay audio in the browser.
-- Let the learner type or paste a transcript manually.
+- Let the learner type or paste a transcript manually before local transcription is integrated.
 - Use browser `SpeechSynthesis` for free text-to-speech playback where acceptable.
 
-First transcription integration:
+Selected transcription integration:
 
 - Use local Whisper through `whisper.cpp`, especially because the target machine is Apple Silicon.
-- Keep `faster-whisper` as a Python-native fallback if it fits the backend better.
+- Start with a small or base English model for fast feedback.
+- Keep `faster-whisper` only as a Python-native backup if `whisper.cpp` integration becomes awkward.
 
 Cloud fallback:
 
@@ -533,4 +547,4 @@ Milestone 5: AI integration.
 1. Can the Kimi account choose other models later, or should `kimi-for-coding` be treated as fixed for v1?
 2. Should initial content be hand-authored seed content, AI-generated with review, or a hybrid?
 3. Which specific free/open source list should be seeded first for daily English and academic English resources?
-4. How much pronunciation feedback is needed in v1 beyond transcript-based speaking feedback?
+4. Should the polished speaking version be played with browser text-to-speech automatically, or should read-after practice be silent/manual in v1?

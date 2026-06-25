@@ -47,3 +47,5 @@ Product decision update:
 - User prefers free/open learning sources.
 - User is comfortable using LLM-generated or LLM-assisted vocabulary content, saved into the app for review.
 - Assistant researched speech options and recommended local-first speech: browser recording and TTS first, then `whisper.cpp` for local transcription, with Azure Speech as the first cloud fallback if needed.
+- User selected the free/local `whisper.cpp` path.
+- User defined the main speaking workflow: the app gives a topic, the learner speaks for about 3 minutes, the recording is transcribed, Kimi polishes it into a better version, and the learner reads after the polished version.

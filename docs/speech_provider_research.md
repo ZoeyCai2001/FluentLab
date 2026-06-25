@@ -5,11 +5,11 @@
 
 ## Decision
 
-Use a local-first speech strategy.
+Use `whisper.cpp` as the selected speech-to-text provider, with a local-first speech strategy.
 
 1. MVP speaking UX starts with browser audio recording and optional manual transcript input.
 2. MVP listening playback starts with stored audio links or browser text-to-speech for generated practice text.
-3. The first real speech-to-text integration should be local Whisper, preferably `whisper.cpp` on Apple Silicon.
+3. The first real speech-to-text integration is local Whisper through `whisper.cpp` on Apple Silicon.
 4. Cloud speech-to-text remains an optional fallback, not the default path.
 
 This matches the product constraints:
@@ -64,7 +64,7 @@ Cons:
 
 Use in FluentLab:
 
-- Recommended default speech-to-text path after the first UI milestone.
+- Selected default speech-to-text path after the first UI milestone.
 - Start with a small or base English model for speed, then test larger models if accuracy is not enough.
 
 ### faster-whisper
@@ -169,6 +169,6 @@ Use in FluentLab:
 
 1. Build speaking tasks with record, replay, and manual transcript input.
 2. Build listening tasks with static audio links and browser text-to-speech.
-3. Add local `whisper.cpp` transcription as an optional local service.
-4. Feed transcripts to Kimi for learning feedback, mistake extraction, and better expressions.
+3. Add local `whisper.cpp` transcription as the selected local service.
+4. Feed transcripts to Kimi for learning feedback, mistake extraction, useful expressions, and a polished read-after version.
 5. Add Azure Speech as the first cloud fallback only if local transcription is not enough.
