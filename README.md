@@ -32,6 +32,19 @@ Run the frontend:
 npm run dev
 ```
 
+Set up the backend:
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install -r backend/requirements.txt
+```
+
+Run the backend:
+
+```bash
+npm run api:dev
+```
+
 Quality checks:
 
 ```bash
@@ -39,6 +52,7 @@ npm run lint
 npm run typecheck
 npm run build
 npm audit --omit=dev
+npm run api:test
 ```
 
-The first app slice uses local seed data. Kimi, whisper.cpp, persistence, and backend APIs will be wired in later milestones.
+The first app slice uses local seed data. The backend now provides the first local API surface with JSON-file persistence. Kimi and whisper.cpp integration will be wired into the existing service boundaries in later milestones.

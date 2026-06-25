@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "typecheck": "next typegen && tsc --noEmit"
+    "typecheck": "next typegen && tsc --noEmit",
+    "api:dev": ".venv/bin/uvicorn backend.app.main:app --reload --host 127.0.0.1 --port 8000",
+    "api:test": ".venv/bin/pytest backend/tests"
   },
   "dependencies": {
     "lucide-react": "latest",

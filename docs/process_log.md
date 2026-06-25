@@ -59,3 +59,12 @@ Implementation update:
 - Speaking Room now supports browser recording, replay, manual transcript editing, a seeded polished version, and browser text-to-speech read-after practice.
 - Added ESLint configuration, TypeScript config, package lockfile, and a PostCSS override to keep `npm audit --omit=dev` clean.
 - Verified with `npm run lint`, `npm run typecheck`, `npm run build`, `npm audit --omit=dev`, and a localhost `200 OK` probe.
+
+Backend implementation update:
+
+- User approved the frontend and asked assistant to continue with the backend.
+- Assistant added a FastAPI backend under `backend/`.
+- Added local JSON state persistence for the local-first MVP.
+- Added profile, settings, daily plan, task status, vocabulary, mistakes, resources, weekly progress, speaking polish, and writing feedback endpoints.
+- Added deterministic local feedback services as the first implementation seam before Kimi and `whisper.cpp` are connected.
+- Added pytest coverage for health, plan persistence, settings updates, speaking polish, and writing feedback.

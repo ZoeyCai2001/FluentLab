@@ -1,0 +1,90 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+from fastapi.testclient import TestClient
+
+from backend.app.main import create_app
+
+
+def make_client(tmp_path: Path) -> TestClient:
+    app = create_app(data_path=tmp_path / "state.json")
+    return TestClient(app)
+
+
+def test_health(tmp_path: Path) -> None:
+    client = make_client(tmp_path)
+
+    response = client.get("/health")
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "ok"
+
+
+def test_today_plan_and_task_update_persist(tmp_path: Path) -> None:
+    client = make_client(tmp_path)
+
+    plan = client.get("/api/plans/today").json()
+    task_id = plan["tasks"][0]["id"]
+
+    update = client.patch(f"/api/tasks/{task_id}", json={"status": "done"})
+
+    assert update.status_code == 200
+    assert update.json()["tasks"][0]["status"] == "done"
+    assert update.json()["completion_rate"] > 0
+
+    reloaded = client.get("/api/plans/today")
+    assert reloaded.json()["tasks"][0]["status"] == "done"
+
+
+def test_settings_update_changes_plan_target(tmp_path: Path) -> None:
+    client = make_client(tmp_path)
+
+    response = client.put(
+        "/api/settings",
+        json={
+            "daily_study_target_minutes": 75,
+            "chinese_explanations": "optional",
+            "local_only": True,
+            "speech_to_text_provider": "whisper.cpp",
+            "llm_provider": "kimi",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["daily_study_target_minutes"] == 75
+    assert client.get("/api/plans/today").json()["target_minutes"] == 75
+
+
+def test_speaking_polish_returns_read_after_version(tmp_path: Path) -> None:
+    client = make_client(tmp_path)
+
+    response = client.post(
+        "/api/speaking/polish",
+        json={
+            "topic": "Explain your research direction",
+            "transcript": "My research is about learning theory and current bounds are sometimes loose",
+        },
+    )
+
+    payload = response.json()
+    assert response.status_code == 200
+    assert "My research focuses on" in payload["polished_version"]
+    assert payload["useful_expressions"]
+
+
+def test_writing_feedback_returns_revision(tmp_path: Path) -> None:
+    client = make_client(tmp_path)
+
+    response = client.post(
+        "/api/writing/feedback",
+        json={
+            "prompt": "Explain why your research matters.",
+            "draft": "My research is about making theory better",
+        },
+    )
+
+    payload = response.json()
+    assert response.status_code == 200
+    assert "developing sharper theoretical guarantees" in payload["revised_version"]
+    assert payload["priority_feedback"]
