@@ -11,6 +11,17 @@ This document translates the PRD into an implementation-oriented design. It defi
 
 The first implementation goal is not to build a large course platform. The first goal is to build a daily learning operating system that tells the learner what to practice today, captures output, gives feedback, and uses mistakes to shape the next plan.
 
+## 1.1 Current Product Decisions
+
+- Start as a single-user product.
+- Local-only first; the first users are the owner and one friend.
+- Default daily study target: 60 minutes.
+- Daily study target must be adjustable in Settings.
+- Chinese explanations should be optional, not always shown.
+- Prefer free and open learning sources.
+- Prefer local/free speech tooling before paid cloud speech APIs.
+- Use LLM-generated and LLM-assisted vocabulary content, but save selected items into a stable review bank.
+
 ## 2. Product Shape
 
 FluentLab should feel like a focused learning workspace, not a marketing site or generic course catalog. The primary screen is the Home Dashboard, centered on today's plan and current weak areas.
@@ -85,7 +96,7 @@ Phase D: Speech workflows.
 
 - Add browser audio recording.
 - Upload speaking attempts.
-- Run speech-to-text.
+- Run speech-to-text through a local-first provider.
 - Generate speaking feedback from transcript plus task metadata.
 
 Phase E: Personalization.
@@ -398,6 +409,28 @@ Target flow:
 7. System saves scores, feedback, useful expressions, and mistakes.
 8. User can retry the task.
 
+### 9.1 Speech Provider Strategy
+
+Use a local-first strategy for cost and privacy.
+
+Initial MVP:
+
+- Record and replay audio in the browser.
+- Let the learner type or paste a transcript manually.
+- Use browser `SpeechSynthesis` for free text-to-speech playback where acceptable.
+
+First transcription integration:
+
+- Use local Whisper through `whisper.cpp`, especially because the target machine is Apple Silicon.
+- Keep `faster-whisper` as a Python-native fallback if it fits the backend better.
+
+Cloud fallback:
+
+- Consider Azure AI Speech first because its free tier is generous enough for early two-user testing.
+- Consider Google Cloud Speech-to-Text or Deepgram only if Azure/local options are insufficient.
+
+See `docs/speech_provider_research.md` for the research notes and sources.
+
 ## 10. Writing Workflow
 
 Writing must protect independent practice.
@@ -497,9 +530,7 @@ Milestone 5: AI integration.
 
 ## 15. Open Questions
 
-1. Should the first real product support one learner only or multi-user accounts from the beginning?
-2. Can the Kimi account choose other models later, or should `kimi-for-coding` be treated as fixed for v1?
-3. Which speech-to-text provider should be used for speaking practice?
-4. Should Chinese explanations be included by default or only on request?
-5. Should initial content be hand-authored seed content or AI-generated with review?
-6. Should the app optimize for local-only use first or deployable cloud infrastructure first?
+1. Can the Kimi account choose other models later, or should `kimi-for-coding` be treated as fixed for v1?
+2. Should initial content be hand-authored seed content, AI-generated with review, or a hybrid?
+3. Which specific free/open source list should be seeded first for daily English and academic English resources?
+4. How much pronunciation feedback is needed in v1 beyond transcript-based speaking feedback?

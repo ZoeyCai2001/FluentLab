@@ -37,3 +37,13 @@ LLM configuration update:
 - Saved the real secret in local `.env`, which is ignored by Git.
 - Added `.env.example` with non-secret Kimi variable names and default base URL/model.
 - Documented Kimi as the initial product LLM provider in `docs/technical_design.md`.
+
+Product decision update:
+
+- User confirmed single-user first.
+- User confirmed local-only first for the owner and one friend.
+- User wants daily study target to be adjustable, with an initial default of 60 minutes.
+- User wants Chinese explanations to be optional.
+- User prefers free/open learning sources.
+- User is comfortable using LLM-generated or LLM-assisted vocabulary content, saved into the app for review.
+- Assistant researched speech options and recommended local-first speech: browser recording and TTS first, then `whisper.cpp` for local transcription, with Azure Speech as the first cloud fallback if needed.
