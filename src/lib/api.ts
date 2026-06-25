@@ -37,7 +37,8 @@ type ApiSettings = {
   llm_provider: string;
 };
 
-type ApiVocabulary = Omit<VocabularyItem, "reviewDue"> & {
+type ApiVocabulary = Omit<VocabularyItem, "reviewDue" | "itemType"> & {
+  item_type?: VocabularyItem["itemType"];
   review_due: string;
 };
 
@@ -95,7 +96,11 @@ export async function updateSettings(settings: UserSettings): Promise<UserSettin
 
 export async function getVocabulary(): Promise<VocabularyItem[]> {
   const items = await request<ApiVocabulary[]>("/api/vocabulary");
-  return items.map((item) => ({ ...item, reviewDue: item.review_due }));
+  return items.map((item) => ({
+    ...item,
+    itemType: item.item_type ?? "Phrase",
+    reviewDue: item.review_due,
+  }));
 }
 
 export async function getMistakes(): Promise<Mistake[]> {

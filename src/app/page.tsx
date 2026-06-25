@@ -41,8 +41,10 @@ import {
 import type { CSSProperties } from "react";
 import {
   initialTasks,
+  listeningPractice,
   mistakes as fallbackMistakes,
   progress as fallbackProgress,
+  readingDigest,
   resources as fallbackResources,
   getDailySpeakingTopics,
   vocabulary as fallbackVocabulary,
@@ -230,6 +232,8 @@ export default function Home() {
   const [writingFeedback, setWritingFeedback] = useState<string[]>([]);
   const [writingPhrases, setWritingPhrases] = useState<string[]>([]);
   const [isReviewingWriting, setIsReviewingWriting] = useState(false);
+  const [listeningAnswers, setListeningAnswers] = useState<Record<string, string>>({});
+  const [readingAnswers, setReadingAnswers] = useState<Record<string, string>>({});
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
@@ -343,6 +347,7 @@ export default function Home() {
 
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     chunksRef.current = [];
+    transcriptRef.current = "";
     setTranscript("");
     setShowPolish(false);
     setSpeakingFeedback([]);
@@ -433,6 +438,18 @@ export default function Home() {
     const utterance = new SpeechSynthesisUtterance(polishedVersion);
     utterance.lang = "en-US";
     utterance.rate = 0.92;
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const playListeningPractice = () => {
+    if (!("speechSynthesis" in window)) {
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(listeningPractice.transcript);
+    utterance.lang = "en-US";
+    utterance.rate = 0.86;
     window.speechSynthesis.speak(utterance);
   };
 
@@ -607,7 +624,16 @@ export default function Home() {
         )}
 
         {activeView === "listening" && (
-          <ListeningView resources={resourceItems} tasks={tasks.filter((task) => task.skill === "Listening")} />
+          <ListeningView
+            answers={listeningAnswers}
+            onAnswerChange={(id, value) =>
+              setListeningAnswers((current) => ({ ...current, [id]: value }))
+            }
+            onCompleteTask={(taskId) => void toggleTask(taskId)}
+            onPlayAudio={playListeningPractice}
+            resources={resourceItems}
+            tasks={tasks.filter((task) => task.skill === "Listening")}
+          />
         )}
 
         {activeView === "speaking" && (
@@ -648,10 +674,22 @@ export default function Home() {
         )}
 
         {activeView === "reading" && (
-          <ReadingView resources={resourceItems} tasks={tasks.filter((task) => task.skill === "Reading")} />
+          <ReadingView
+            answers={readingAnswers}
+            onAnswerChange={(id, value) =>
+              setReadingAnswers((current) => ({ ...current, [id]: value }))
+            }
+            onCompleteTask={(taskId) => void toggleTask(taskId)}
+            resources={resourceItems}
+            tasks={tasks.filter((task) => task.skill === "Reading")}
+          />
         )}
         {activeView === "vocabulary" && (
-          <VocabularyView vocabulary={vocabularyItems} onNeedReview={markVocabularyForReview} />
+          <VocabularyView
+            mistakes={mistakeItems}
+            vocabulary={vocabularyItems}
+            onNeedReview={markVocabularyForReview}
+          />
         )}
         {activeView === "mistakes" && <MistakesView mistakes={mistakeItems} />}
         {activeView === "resources" && <ResourcesView resources={resourceItems} />}
@@ -753,37 +791,83 @@ function DashboardView({
 }
 
 function ListeningView({
+  answers,
+  onAnswerChange,
+  onCompleteTask,
+  onPlayAudio,
   resources,
   tasks,
 }: {
+  answers: Record<string, string>;
+  onAnswerChange: (id: string, value: string) => void;
+  onCompleteTask: (taskId: string) => void;
+  onPlayAudio: () => void;
   resources: ResourceItem[];
   tasks: LearningTask[];
 }) {
   const listeningResources = resources.filter((resource) => resource.skill === "Listening");
+  const task = tasks[0];
 
   return (
     <div className="stack">
       <section className="panel">
         <div className="panel-header">
-          <h3 className="panel-title">Today&apos;s Listening Work</h3>
-          <span className="tag skill-Listening">{tasks.length} tasks</span>
+          <h3 className="panel-title">{task?.title ?? "Today's Listening Work"}</h3>
+          <span className={`tag ${task?.status === "done" ? "skill-Daily" : "skill-Listening"}`}>
+            {task?.status === "done" ? "done" : "active task"}
+          </span>
         </div>
-        <div className="panel-body two-column">
-          {tasks.map((task) => (
-            <article className="mistake-item" key={task.id}>
-              <span className={`tag skill-${task.skill}`}>{task.skill}</span>
-              <h3 className="task-title">{task.title}</h3>
-              <p>{task.goal}</p>
-              <p>Output: {task.output}</p>
-            </article>
-          ))}
+        <div className="panel-body stack">
+          <div className="resource-item">
+            <div className="task-meta">
+              <span className="tag skill-Listening">{listeningPractice.audioLabel}</span>
+              <span className="tag">{task?.minutes ?? 12}m</span>
+            </div>
+            <h3 className="task-title">{listeningPractice.title}</h3>
+            <p>{task?.goal}</p>
+            <button className="primary-button" type="button" onClick={onPlayAudio}>
+              <Volume2 size={16} aria-hidden="true" />
+              Play audio
+            </button>
+          </div>
+
+          <div className="two-column">
+            {listeningPractice.questions.map((question) => (
+              <div className="field" key={question.id}>
+                <label htmlFor={`listening-${question.id}`}>{question.prompt}</label>
+                <textarea
+                  className="textarea compact-textarea"
+                  id={`listening-${question.id}`}
+                  value={answers[question.id] ?? ""}
+                  onChange={(event) => onAnswerChange(question.id, event.target.value)}
+                />
+                <p className="task-detail">Answer key: {question.answer}</p>
+              </div>
+            ))}
+          </div>
+
+          <details className="text-box">
+            <summary>Transcript</summary>
+            <p>{listeningPractice.transcript}</p>
+          </details>
+
+          {task && (
+            <button
+              className="primary-button"
+              type="button"
+              onClick={() => onCompleteTask(task.id)}
+            >
+              <Check size={16} aria-hidden="true" />
+              {task.status === "done" ? "Mark unfinished" : "Finish listening task"}
+            </button>
+          )}
         </div>
       </section>
 
       <section className="panel">
         <div className="panel-header">
-          <h3 className="panel-title">Open Listening Sources</h3>
-          <span className="tag">audio/video</span>
+          <h3 className="panel-title">Picked Listening Sources</h3>
+          <span className="tag">exact links</span>
         </div>
         <div className="panel-body two-column">
           {listeningResources.map((item) => (
@@ -806,30 +890,61 @@ function ListeningView({
 }
 
 function ReadingView({
+  answers,
+  onAnswerChange,
+  onCompleteTask,
   resources,
   tasks,
 }: {
+  answers: Record<string, string>;
+  onAnswerChange: (id: string, value: string) => void;
+  onCompleteTask: (taskId: string) => void;
   resources: ResourceItem[];
   tasks: LearningTask[];
 }) {
   const readingResources = resources.filter((resource) => resource.skill === "Reading");
+  const task = tasks[0];
 
   return (
     <div className="stack">
       <section className="panel">
         <div className="panel-header">
-          <h3 className="panel-title">Today&apos;s Reading Digest</h3>
-          <span className="tag skill-Reading">{tasks.length} tasks</span>
+          <h3 className="panel-title">{readingDigest.title}</h3>
+          <span className={`tag ${task?.status === "done" ? "skill-Daily" : "skill-Reading"}`}>
+            {task?.status === "done" ? "done" : "active task"}
+          </span>
         </div>
-        <div className="panel-body two-column">
-          {tasks.map((task) => (
-            <article className="mistake-item" key={task.id}>
-              <span className={`tag skill-${task.skill}`}>{task.skill}</span>
-              <h3 className="task-title">{task.title}</h3>
-              <p>{task.goal}</p>
-              <p>Output: {task.output}</p>
-            </article>
+        <div className="panel-body stack">
+          <div className="text-box digest-box">
+            <div className="task-meta">
+              <span className="tag skill-Reading">{readingDigest.source}</span>
+              <span className="tag">{task?.minutes ?? 10}m</span>
+            </div>
+            <p>{readingDigest.text}</p>
+          </div>
+
+          {readingDigest.prompts.map((prompt, index) => (
+            <div className="field" key={prompt}>
+              <label htmlFor={`reading-${index}`}>{prompt}</label>
+              <textarea
+                className="textarea compact-textarea"
+                id={`reading-${index}`}
+                value={answers[String(index)] ?? ""}
+                onChange={(event) => onAnswerChange(String(index), event.target.value)}
+              />
+            </div>
           ))}
+
+          {task && (
+            <button
+              className="primary-button"
+              type="button"
+              onClick={() => onCompleteTask(task.id)}
+            >
+              <Check size={16} aria-hidden="true" />
+              {task.status === "done" ? "Mark unfinished" : "Finish reading task"}
+            </button>
+          )}
         </div>
       </section>
 
@@ -855,21 +970,6 @@ function ReadingView({
         </div>
       </section>
 
-      <section className="panel">
-        <div className="panel-header">
-          <h3 className="panel-title">Pure Text Digest</h3>
-          <span className="tag skill-Reading">summary practice</span>
-        </div>
-        <div className="panel-body">
-          <div className="text-box">
-            A university research group released a short update about improving the reliability of
-            machine learning systems. The team emphasized that practical progress depends not only on
-            larger models, but also on clearer evaluation, stronger theoretical explanations, and
-            careful communication between researchers. For today&apos;s practice, summarize the update in
-            three sentences and write one follow-up question you could ask in a meeting.
-          </div>
-        </div>
-      </section>
     </div>
   );
 }
@@ -1121,35 +1221,80 @@ function WritingView({
 }
 
 function VocabularyView({
+  mistakes,
   vocabulary,
   onNeedReview,
 }: {
+  mistakes: Mistake[];
   vocabulary: VocabularyItem[];
+  onNeedReview: (item: VocabularyItem) => void | Promise<void>;
+}) {
+  const words = vocabulary.filter((item) => item.itemType === "Word");
+  const phrases = vocabulary.filter((item) => item.itemType === "Phrase");
+  const reviewIds = new Set(mistakes.map((item) => item.id));
+
+  return (
+    <div className="stack">
+      <VocabularySection
+        items={phrases}
+        reviewIds={reviewIds}
+        title="Daily Phrases"
+        onNeedReview={onNeedReview}
+      />
+      <VocabularySection
+        items={words}
+        reviewIds={reviewIds}
+        title="Daily Words"
+        onNeedReview={onNeedReview}
+      />
+    </div>
+  );
+}
+
+function VocabularySection({
+  items,
+  reviewIds,
+  title,
+  onNeedReview,
+}: {
+  items: VocabularyItem[];
+  reviewIds: Set<string>;
+  title: string;
   onNeedReview: (item: VocabularyItem) => void | Promise<void>;
 }) {
   return (
     <section className="panel">
       <div className="panel-header">
-        <h3 className="panel-title">Review Cards</h3>
-        <span className="tag">{vocabulary.length} phrases</span>
+        <h3 className="panel-title">{title}</h3>
+        <span className="tag">{items.length} cards</span>
       </div>
       <div className="panel-body two-column">
-        {vocabulary.map((item) => (
-          <article className="vocab-item" key={item.id}>
-            <span className={`tag skill-${item.context === "Daily" ? "Daily" : "Academic"}`}>
-              {item.context}
-            </span>
-            <h3 className="task-title">{item.phrase}</h3>
-            <p>{item.meaning}</p>
-            <p>{item.example}</p>
-            <div className="task-meta">
-              <span className="tag">Review: {item.reviewDue}</span>
-              <button className="secondary-button" type="button" onClick={() => void onNeedReview(item)}>
-                Need review
-              </button>
-            </div>
-          </article>
-        ))}
+        {items.map((item) => {
+          const reviewId = `vocab-${item.id}`;
+          const saved = reviewIds.has(reviewId);
+
+          return (
+            <article className="vocab-item" key={item.id}>
+              <span className={`tag skill-${item.context === "Daily" ? "Daily" : "Academic"}`}>
+                {item.context}
+              </span>
+              <h3 className="task-title">{item.phrase}</h3>
+              <p>{item.meaning}</p>
+              <p>{item.example}</p>
+              <div className="task-meta">
+                <span className="tag">Review: {item.reviewDue}</span>
+                <button
+                  className="secondary-button"
+                  disabled={saved}
+                  type="button"
+                  onClick={() => void onNeedReview(item)}
+                >
+                  {saved ? "In notebook" : "Need review"}
+                </button>
+              </div>
+            </article>
+          );
+        })}
       </div>
     </section>
   );

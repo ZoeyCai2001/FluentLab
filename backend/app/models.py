@@ -69,6 +69,7 @@ class VocabularyItem(BaseModel):
     id: str
     phrase: str
     meaning: str
+    item_type: Literal["Word", "Phrase"] = "Phrase"
     context: Literal["Daily", "Academic", "Writing", "Speaking"]
     example: str
     review_due: str

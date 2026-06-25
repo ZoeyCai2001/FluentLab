@@ -98,3 +98,11 @@ Speech-to-text follow-up:
 - Implemented browser speech recognition as the first free in-app transcription path while recording.
 - Kept the transcript editable so the learner can correct recognition errors or manually enter text when the browser speech API is unavailable.
 - Kept `whisper.cpp` as the selected fully local transcription provider for the next backend milestone.
+
+User testing feedback:
+
+- Listening Corner should not only show a task card. The daily listening work needs playable audio, questions after audio, and a transcript.
+- Open listening sources should be exact picked videos or audio lessons, not broad pages with many videos.
+- Speaking Room topics should be more specific and scenario-based.
+- Reading Digest should provide an actual digest and let the learner finish the task.
+- Vocabulary Bank needs at least 10 phrases and 10 words, and the Need review button must visibly save items into Mistake Notebook.

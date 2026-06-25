@@ -75,7 +75,12 @@ class JsonStateStore:
 
         existing_vocabulary = {item.id: item for item in state.vocabulary}
         existing_mistakes = {item.id: item for item in state.mistakes}
-        existing_resources = {item.id: item for item in state.resources}
+        deprecated_resource_ids = {"ted-ed", "nasa-podcasts", "voa-learning"}
+        existing_resources = {
+            item.id: item
+            for item in state.resources
+            if item.id not in deprecated_resource_ids
+        }
 
         state.daily_plan = seed.daily_plan.model_copy(
             update={
@@ -88,9 +93,9 @@ class JsonStateStore:
                 ),
             }
         )
-        state.vocabulary = list({**{item.id: item for item in seed.vocabulary}, **existing_vocabulary}.values())
+        state.vocabulary = list({**existing_vocabulary, **{item.id: item for item in seed.vocabulary}}.values())
         state.mistakes = list({**{item.id: item for item in seed.mistakes}, **existing_mistakes}.values())
-        state.resources = list({**{item.id: item for item in seed.resources}, **existing_resources}.values())
+        state.resources = list({**existing_resources, **{item.id: item for item in seed.resources}}.values())
         if not state.progress:
             state.progress = seed.progress
         return state

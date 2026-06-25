@@ -47,6 +47,11 @@ button {
   cursor: pointer;
 }
 
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 .app-shell {
   display: grid;
   grid-template-columns: 248px minmax(0, 1fr);
@@ -462,6 +467,10 @@ button {
   line-height: 1.5;
 }
 
+.compact-textarea {
+  min-height: 86px;
+}
+
 .speech-stage {
   display: grid;
   gap: 18px;
@@ -508,6 +517,16 @@ button {
   padding: 14px;
   color: var(--muted);
   line-height: 1.55;
+}
+
+.text-box summary {
+  cursor: pointer;
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.digest-box {
+  min-height: auto;
 }
 
 .calendar-grid {

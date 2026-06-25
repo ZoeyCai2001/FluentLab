@@ -52,6 +52,7 @@ export type VocabularyItem = {
   id: string;
   phrase: string;
   meaning: string;
+  itemType: "Word" | "Phrase";
   context: "Daily" | "Academic" | "Writing" | "Speaking";
   example: string;
   reviewDue: string;

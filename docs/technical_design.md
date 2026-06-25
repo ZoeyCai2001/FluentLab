@@ -26,6 +26,11 @@ The first implementation goal is not to build a large course platform. The first
 - Main module navigation should be Dashboard, Listening Corner, Speaking Room, Writing Studio, Reading Digest, Vocabulary Bank, Mistake Notebook, Resource Center, and Settings.
 - Daily task Start buttons should open the corresponding module page.
 - Vocabulary items marked as hard should become Mistake Notebook review items.
+- Listening and Reading module tasks must be finishable inside the module, not just displayed as static cards.
+- Listening practice should include playable audio, comprehension questions, and a transcript.
+- Resource Center and module source links should use exact picked lessons, videos, articles, or lectures instead of broad homepages.
+- Vocabulary Bank should separate words and phrases, with at least 10 of each in the daily bank.
+- Need review actions must visibly save to Mistake Notebook and prevent duplicate saves.
 
 ## 2. Product Shape
 

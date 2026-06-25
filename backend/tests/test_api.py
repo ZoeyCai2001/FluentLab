@@ -107,3 +107,28 @@ def test_vocabulary_can_create_mistake_review_item(tmp_path: Path) -> None:
 
     assert response.status_code == 200
     assert any(item["id"] == "vocab-key-challenge" for item in response.json())
+
+
+def test_vocabulary_bank_has_words_and_phrases(tmp_path: Path) -> None:
+    client = make_client(tmp_path)
+
+    response = client.get("/api/vocabulary")
+    items = response.json()
+
+    assert response.status_code == 200
+    assert sum(1 for item in items if item["item_type"] == "Phrase") >= 10
+    assert sum(1 for item in items if item["item_type"] == "Word") >= 10
+
+
+def test_listening_resources_are_exact_picks(tmp_path: Path) -> None:
+    client = make_client(tmp_path)
+
+    response = client.get("/api/resources")
+    listening = [item for item in response.json() if item["skill"] == "Listening"]
+    urls = {item["url"] for item in listening}
+
+    assert response.status_code == 200
+    assert "https://ed.ted.com/lessons" not in urls
+    assert "https://www.nasa.gov/podcasts/" not in urls
+    assert any("lecture-1-introduction" in url for url in urls)
+    assert any("lets-learn-english-level-1-lesson-1-welcome" in url for url in urls)
