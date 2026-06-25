@@ -336,6 +336,17 @@ Later AI planner:
 
 AI should generate drafts of learning content, feedback, and recommendations. The application should own validation, persistence, scheduling, and user-visible state.
 
+The initial project LLM provider is Kimi, configured through environment variables:
+
+```text
+KIMI_API_KEY
+KIMI_API_BASE_URL=https://api.kimi.com/coding/v1
+KIMI_MODEL=kimi-for-coding
+PROJECT_LLM_PROVIDER=kimi
+```
+
+These credentials are for FluentLab product features, such as learning-plan generation, writing feedback, speaking feedback from transcripts, and mistake extraction. They are not used for the development process itself.
+
 ### 8.2 Prompt Types
 
 Prompt families:
@@ -487,9 +498,8 @@ Milestone 5: AI integration.
 ## 15. Open Questions
 
 1. Should the first real product support one learner only or multi-user accounts from the beginning?
-2. Which LLM provider should be used for planning and feedback?
+2. Can the Kimi account choose other models later, or should `kimi-for-coding` be treated as fixed for v1?
 3. Which speech-to-text provider should be used for speaking practice?
 4. Should Chinese explanations be included by default or only on request?
 5. Should initial content be hand-authored seed content or AI-generated with review?
 6. Should the app optimize for local-only use first or deployable cloud infrastructure first?
-

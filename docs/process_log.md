@@ -30,3 +30,10 @@ Git status:
 - Added `origin` as `https://github.com/ZoeyCai2001/FluentLab.git`.
 - Created initial commit `3164a63` with message `Add FluentLab technical design foundation`.
 - Attempted to push to GitHub, but the local environment did not have GitHub authentication configured for HTTPS or SSH.
+
+LLM configuration update:
+
+- User provided a Kimi API configuration for project features, not for the development process.
+- Saved the real secret in local `.env`, which is ignored by Git.
+- Added `.env.example` with non-secret Kimi variable names and default base URL/model.
+- Documented Kimi as the initial product LLM provider in `docs/technical_design.md`.
