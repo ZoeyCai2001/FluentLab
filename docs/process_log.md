@@ -68,3 +68,13 @@ Backend implementation update:
 - Added profile, settings, daily plan, task status, vocabulary, mistakes, resources, weekly progress, speaking polish, and writing feedback endpoints.
 - Added deterministic local feedback services as the first implementation seam before Kimi and `whisper.cpp` are connected.
 - Added pytest coverage for health, plan persistence, settings updates, speaking polish, and writing feedback.
+
+Frontend-backend integration update:
+
+- User noted that backend work was not visible from the browser and asked assistant to connect the frontend to the backend API.
+- Assistant added a frontend API client for the FastAPI endpoints.
+- Dashboard, Daily Plan, Vocabulary Bank, Mistake Notebook, Progress Report, Resource Center, and Settings now load backend data with local seed data as fallback.
+- Task completion and settings updates now write through backend endpoints.
+- Speaking polish and Writing Studio review buttons now call backend feedback endpoints and render backend-returned feedback.
+- Frontend top bar now shows backend API status.
+- Local backend dev port was standardized to `8001` because `8000` was already occupied on the user's machine.

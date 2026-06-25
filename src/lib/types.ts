@@ -20,6 +20,25 @@ export type LearningTask = {
   goal: string;
   output: string;
 };
+
+export type DailyPlan = {
+  id: string;
+  planDate: string;
+  targetMinutes: number;
+  totalEstimatedMinutes: number;
+  completionRate: number;
+  focus: Skill[];
+  tasks: LearningTask[];
+};
+
+export type UserSettings = {
+  dailyStudyTargetMinutes: number;
+  chineseExplanations: "optional" | "enabled" | "hidden";
+  localOnly: boolean;
+  speechToTextProvider: string;
+  llmProvider: string;
+};
+
 export type Mistake = {
   id: string;
   skill: Skill;
@@ -51,4 +70,25 @@ export type ProgressPoint = {
   label: string;
   minutes: number;
   completed: number;
+};
+
+export type WeeklyProgress = {
+  points: ProgressPoint[];
+  totalMinutes: number;
+  completedTasks: number;
+  recommendedFocus: Skill[];
+};
+
+export type SpeakingPolish = {
+  polishedVersion: string;
+  feedback: string[];
+  usefulExpressions: string[];
+  recurringMistakes: Mistake[];
+};
+
+export type WritingFeedback = {
+  priorityFeedback: string[];
+  revisedVersion: string;
+  reusablePhrases: string[];
+  extractedMistakes: Mistake[];
 };

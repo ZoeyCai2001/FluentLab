@@ -6,9 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint .",
+    "lint": "eslint src next.config.ts eslint.config.mjs",
     "typecheck": "next typegen && tsc --noEmit",
-    "api:dev": ".venv/bin/uvicorn backend.app.main:app --reload --host 127.0.0.1 --port 8000",
+    "api:dev": ".venv/bin/uvicorn backend.app.main:app --reload --host 127.0.0.1 --port 8001",
     "api:test": ".venv/bin/pytest backend/tests"
   },
   "dependencies": {
@@ -18,11 +18,14 @@
     "react-dom": "latest"
   },
   "devDependencies": {
+    "@eslint/js": "9.39.4",
     "@types/node": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
     "eslint": "latest",
     "eslint-config-next": "latest",
+    "globals": "16.4.0",
+    "typescript-eslint": "8.62.0",
     "typescript": "latest"
   },
   "overrides": {

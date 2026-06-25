@@ -173,6 +173,18 @@ button {
   white-space: nowrap;
 }
 
+.pill.api-live {
+  border-color: var(--green);
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+.pill.api-offline {
+  border-color: var(--rose);
+  background: var(--rose-soft);
+  color: var(--rose);
+}
+
 .dashboard-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.5fr) minmax(300px, 0.8fr);

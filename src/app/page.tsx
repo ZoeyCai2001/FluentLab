@@ -22,16 +22,37 @@ import {
   Wand2,
   type LucideIcon,
 } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  getHealth,
+  getMistakes,
+  getResources,
+  getSettings,
+  getTodayPlan,
+  getVocabulary,
+  getWeeklyProgress,
+  polishSpeaking,
+  reviewWriting,
+  updateSettings,
+  updateTaskStatus,
+} from "@/lib/api";
 import {
   initialTasks,
-  mistakes,
-  progress,
-  resources,
+  mistakes as fallbackMistakes,
+  progress as fallbackProgress,
+  resources as fallbackResources,
   speakingTopics,
-  vocabulary,
+  vocabulary as fallbackVocabulary,
 } from "@/lib/seed-data";
-import type { LearningTask, Skill } from "@/lib/types";
+import type {
+  LearningTask,
+  Mistake,
+  ProgressPoint,
+  ResourceItem,
+  Skill,
+  UserSettings,
+  VocabularyItem,
+} from "@/lib/types";
 
 type View =
   | "dashboard"
@@ -132,23 +153,43 @@ const writingPrompt =
 export default function Home() {
   const [activeView, setActiveView] = useState<View>("dashboard");
   const [tasks, setTasks] = useState<LearningTask[]>(initialTasks);
-  const [dailyTarget, setDailyTarget] = useState(60);
-  const [chineseOptional, setChineseOptional] = useState(true);
+  const [settings, setSettings] = useState<UserSettings>({
+    dailyStudyTargetMinutes: 60,
+    chineseExplanations: "optional",
+    localOnly: true,
+    speechToTextProvider: "whisper.cpp",
+    llmProvider: "kimi",
+  });
+  const [vocabularyItems, setVocabularyItems] = useState<VocabularyItem[]>(fallbackVocabulary);
+  const [mistakeItems, setMistakeItems] = useState<Mistake[]>(fallbackMistakes);
+  const [resourceItems, setResourceItems] = useState<ResourceItem[]>(fallbackResources);
+  const [progressPoints, setProgressPoints] = useState<ProgressPoint[]>(fallbackProgress);
+  const [apiLive, setApiLive] = useState(false);
+  const [apiMessage, setApiMessage] = useState("Loading backend data...");
   const [selectedTopic, setSelectedTopic] = useState(speakingTopics[0]);
   const [isRecording, setIsRecording] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [transcript, setTranscript] = useState(sampleTranscript);
   const [showPolish, setShowPolish] = useState(true);
+  const [polishedVersion, setPolishedVersion] = useState(polishedSpeech);
+  const [speakingFeedback, setSpeakingFeedback] = useState<string[]>([]);
+  const [speakingExpressions, setSpeakingExpressions] = useState<string[]>([]);
+  const [isPolishing, setIsPolishing] = useState(false);
   const [draft, setDraft] = useState(
     "My research is about understanding why machine learning algorithms work. This problem is important because many methods perform well, but the theory is not always clear. I want to study conditions that can explain generalization better.",
   );
   const [revision, setRevision] = useState(
     "My research studies why machine learning algorithms generalize well beyond their training data. This problem matters because many practical methods perform strongly, while existing theory often gives bounds that are too loose to explain their behavior. I want to identify conditions that lead to sharper and more useful guarantees.",
   );
+  const [writingFeedback, setWritingFeedback] = useState<string[]>([]);
+  const [writingPhrases, setWritingPhrases] = useState<string[]>([]);
+  const [isReviewingWriting, setIsReviewingWriting] = useState(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
 
+  const dailyTarget = settings.dailyStudyTargetMinutes;
+  const chineseOptional = settings.chineseExplanations !== "hidden";
   const completedTasks = tasks.filter((task) => task.status === "done").length;
   const completedMinutes = tasks
     .filter((task) => task.status === "done")
@@ -168,14 +209,78 @@ export default function Home() {
 
   const meta = pageMeta[activeView];
 
-  const toggleTask = (taskId: string) => {
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadBackendData() {
+      try {
+        const [health, plan, apiSettings, apiVocabulary, apiMistakes, apiResources, weeklyProgress] =
+          await Promise.all([
+            getHealth(),
+            getTodayPlan(),
+            getSettings(),
+            getVocabulary(),
+            getMistakes(),
+            getResources(),
+            getWeeklyProgress(),
+          ]);
+
+        if (cancelled) {
+          return;
+        }
+
+        setApiLive(health);
+        setApiMessage("Backend API live");
+        setTasks(plan.tasks);
+        setSettings(apiSettings);
+        setVocabularyItems(apiVocabulary);
+        setMistakeItems(apiMistakes);
+        setResourceItems(apiResources);
+        setProgressPoints(weeklyProgress.points);
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+
+        console.error(error);
+        setApiLive(false);
+        setApiMessage("Backend offline, using local fallback data");
+      }
+    }
+
+    void loadBackendData();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const toggleTask = async (taskId: string) => {
+    const currentTask = tasks.find((task) => task.id === taskId);
+    if (!currentTask) {
+      return;
+    }
+
+    const nextStatus = currentTask.status === "done" ? "todo" : "done";
+
     setTasks((current) =>
       current.map((task) =>
         task.id === taskId
-          ? { ...task, status: task.status === "done" ? "todo" : "done" }
+          ? { ...task, status: nextStatus }
           : task,
       ),
     );
+
+    try {
+      const plan = await updateTaskStatus(taskId, nextStatus);
+      setTasks(plan.tasks);
+      setApiLive(true);
+      setApiMessage("Backend API live");
+    } catch (error) {
+      console.error(error);
+      setApiLive(false);
+      setApiMessage("Could not save task status to backend");
+    }
   };
 
   const startRecording = async () => {
@@ -215,10 +320,62 @@ export default function Home() {
     }
 
     window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(polishedSpeech);
+    const utterance = new SpeechSynthesisUtterance(polishedVersion);
     utterance.lang = "en-US";
     utterance.rate = 0.92;
     window.speechSynthesis.speak(utterance);
+  };
+
+  const requestSpeakingPolish = async () => {
+    setIsPolishing(true);
+    try {
+      const result = await polishSpeaking(selectedTopic, transcript);
+      setPolishedVersion(result.polishedVersion);
+      setSpeakingFeedback(result.feedback);
+      setSpeakingExpressions(result.usefulExpressions);
+      setShowPolish(true);
+      setApiLive(true);
+      setApiMessage("Backend API live");
+    } catch (error) {
+      console.error(error);
+      setApiLive(false);
+      setApiMessage("Could not request backend speaking polish");
+      setShowPolish(true);
+    } finally {
+      setIsPolishing(false);
+    }
+  };
+
+  const requestWritingFeedback = async () => {
+    setIsReviewingWriting(true);
+    try {
+      const result = await reviewWriting(writingPrompt, draft);
+      setRevision(result.revisedVersion);
+      setWritingFeedback(result.priorityFeedback);
+      setWritingPhrases(result.reusablePhrases);
+      setApiLive(true);
+      setApiMessage("Backend API live");
+    } catch (error) {
+      console.error(error);
+      setApiLive(false);
+      setApiMessage("Could not request backend writing feedback");
+    } finally {
+      setIsReviewingWriting(false);
+    }
+  };
+
+  const saveSettings = async (nextSettings: UserSettings) => {
+    setSettings(nextSettings);
+    try {
+      const saved = await updateSettings(nextSettings);
+      setSettings(saved);
+      setApiLive(true);
+      setApiMessage("Backend API live");
+    } catch (error) {
+      console.error(error);
+      setApiLive(false);
+      setApiMessage("Could not save settings to backend");
+    }
   };
 
   return (
@@ -266,6 +423,9 @@ export default function Home() {
               <Sparkles size={15} aria-hidden="true" />
               4-day streak
             </span>
+            <span className={`pill ${apiLive ? "api-live" : "api-offline"}`}>
+              {apiMessage}
+            </span>
           </div>
         </header>
 
@@ -278,6 +438,7 @@ export default function Home() {
             skillMinutes={skillMinutes}
             tasks={tasks}
             totalMinutes={totalMinutes}
+            mistakes={mistakeItems}
             onOpenPlan={() => setActiveView("daily-plan")}
             onToggleTask={toggleTask}
           />
@@ -290,15 +451,19 @@ export default function Home() {
         {activeView === "speaking" && (
           <SpeakingView
             audioUrl={audioUrl}
+            feedback={speakingFeedback}
             isRecording={isRecording}
-            onPolish={() => setShowPolish(true)}
+            isPolishing={isPolishing}
+            onPolish={requestSpeakingPolish}
             onSelectTopic={setSelectedTopic}
             onSpeak={speakPolishedVersion}
             onStart={startRecording}
             onStop={stopRecording}
             polishedVisible={showPolish}
+            polishedVersion={polishedVersion}
             selectedTopic={selectedTopic}
             transcript={transcript}
+            usefulExpressions={speakingExpressions}
             onTranscriptChange={setTranscript}
           />
         )}
@@ -306,22 +471,35 @@ export default function Home() {
         {activeView === "writing" && (
           <WritingView
             draft={draft}
+            feedback={writingFeedback}
+            isReviewing={isReviewingWriting}
             onDraftChange={setDraft}
+            onReview={requestWritingFeedback}
             onRevisionChange={setRevision}
+            reusablePhrases={writingPhrases}
             revision={revision}
           />
         )}
 
-        {activeView === "vocabulary" && <VocabularyView />}
-        {activeView === "mistakes" && <MistakesView />}
-        {activeView === "progress" && <ProgressView />}
-        {activeView === "resources" && <ResourcesView />}
+        {activeView === "vocabulary" && <VocabularyView vocabulary={vocabularyItems} />}
+        {activeView === "mistakes" && <MistakesView mistakes={mistakeItems} />}
+        {activeView === "progress" && <ProgressView progress={progressPoints} />}
+        {activeView === "resources" && <ResourcesView resources={resourceItems} />}
         {activeView === "settings" && (
           <SettingsView
             chineseOptional={chineseOptional}
             dailyTarget={dailyTarget}
-            onChineseOptionalChange={setChineseOptional}
-            onDailyTargetChange={setDailyTarget}
+            llmProvider={settings.llmProvider}
+            speechToTextProvider={settings.speechToTextProvider}
+            onChineseOptionalChange={(value) =>
+              void saveSettings({
+                ...settings,
+                chineseExplanations: value ? "optional" : "hidden",
+              })
+            }
+            onDailyTargetChange={(value) =>
+              void saveSettings({ ...settings, dailyStudyTargetMinutes: value })
+            }
           />
         )}
       </main>
@@ -337,6 +515,7 @@ function DashboardView({
   skillMinutes,
   tasks,
   totalMinutes,
+  mistakes,
   onOpenPlan,
   onToggleTask,
 }: {
@@ -347,8 +526,9 @@ function DashboardView({
   skillMinutes: Partial<Record<Skill, number>>;
   tasks: LearningTask[];
   totalMinutes: number;
+  mistakes: Mistake[];
   onOpenPlan: () => void;
-  onToggleTask: (taskId: string) => void;
+  onToggleTask: (taskId: string) => void | Promise<void>;
 }) {
   return (
     <div>
@@ -395,7 +575,7 @@ function DashboardView({
           <section className="panel">
             <div className="panel-header">
               <h3 className="panel-title">Review Queue</h3>
-              <span className="tag">3 items</span>
+              <span className="tag">{mistakes.length} items</span>
             </div>
             <div className="panel-body stack">
               {mistakes.slice(0, 2).map((item) => (
@@ -417,7 +597,7 @@ function DailyPlanView({
   onToggleTask,
 }: {
   tasks: LearningTask[];
-  onToggleTask: (taskId: string) => void;
+  onToggleTask: (taskId: string) => void | Promise<void>;
 }) {
   return (
     <section className="panel">
@@ -434,27 +614,35 @@ function DailyPlanView({
 
 function SpeakingView({
   audioUrl,
+  feedback,
   isRecording,
+  isPolishing,
   onPolish,
   onSelectTopic,
   onSpeak,
   onStart,
   onStop,
   polishedVisible,
+  polishedVersion,
   selectedTopic,
   transcript,
+  usefulExpressions,
   onTranscriptChange,
 }: {
   audioUrl: string | null;
+  feedback: string[];
   isRecording: boolean;
-  onPolish: () => void;
+  isPolishing: boolean;
+  onPolish: () => void | Promise<void>;
   onSelectTopic: (topic: string) => void;
   onSpeak: () => void;
   onStart: () => void;
   onStop: () => void;
   polishedVisible: boolean;
+  polishedVersion: string;
   selectedTopic: string;
   transcript: string;
+  usefulExpressions: string[];
   onTranscriptChange: (value: string) => void;
 }) {
   return (
@@ -514,9 +702,9 @@ function SpeakingView({
         <div className="panel-header">
           <h3 className="panel-title">Transcript and Polish</h3>
           <div className="top-actions">
-            <button className="secondary-button" type="button" onClick={onPolish}>
+            <button className="secondary-button" type="button" onClick={() => void onPolish()}>
               <Wand2 size={16} aria-hidden="true" />
-              Polish
+              {isPolishing ? "Polishing" : "Polish"}
             </button>
             <button className="secondary-button" type="button" onClick={onSpeak}>
               <Volume2 size={16} aria-hidden="true" />
@@ -536,23 +724,54 @@ function SpeakingView({
           </div>
           <div className="field">
             <label>Polished version</label>
-            <div className="text-box">{polishedVisible ? polishedSpeech : "Submit a transcript to create a polished version."}</div>
+            <div className="text-box">{polishedVisible ? polishedVersion : "Submit a transcript to create a polished version."}</div>
           </div>
         </div>
       </section>
+
+      {(feedback.length > 0 || usefulExpressions.length > 0) && (
+        <section className="panel">
+          <div className="panel-header">
+            <h3 className="panel-title">Backend Feedback</h3>
+            <span className="tag">FastAPI</span>
+          </div>
+          <div className="panel-body two-column">
+            <div className="mistake-item">
+              <h3 className="task-title">Priority feedback</h3>
+              {feedback.map((item) => (
+                <p key={item}>{item}</p>
+              ))}
+            </div>
+            <div className="mistake-item">
+              <h3 className="task-title">Useful expressions</h3>
+              {usefulExpressions.map((item) => (
+                <p key={item}>{item}</p>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
     </div>
   );
 }
 
 function WritingView({
   draft,
+  feedback,
+  isReviewing,
   onDraftChange,
+  onReview,
   onRevisionChange,
+  reusablePhrases,
   revision,
 }: {
   draft: string;
+  feedback: string[];
+  isReviewing: boolean;
   onDraftChange: (value: string) => void;
+  onReview: () => void | Promise<void>;
   onRevisionChange: (value: string) => void;
+  reusablePhrases: string[];
   revision: string;
 }) {
   return (
@@ -570,9 +789,9 @@ function WritingView({
       <section className="panel">
         <div className="panel-header">
           <h3 className="panel-title">Draft and Revision</h3>
-          <button className="secondary-button" type="button">
+          <button className="secondary-button" type="button" onClick={() => void onReview()}>
             <RefreshCcw size={16} aria-hidden="true" />
-            Compare
+            {isReviewing ? "Reviewing" : "Review"}
           </button>
         </div>
         <div className="panel-body compare-grid">
@@ -596,11 +815,34 @@ function WritingView({
           </div>
         </div>
       </section>
+
+      {(feedback.length > 0 || reusablePhrases.length > 0) && (
+        <section className="panel">
+          <div className="panel-header">
+            <h3 className="panel-title">Backend Writing Feedback</h3>
+            <span className="tag">FastAPI</span>
+          </div>
+          <div className="panel-body two-column">
+            <div className="mistake-item">
+              <h3 className="task-title">Priority feedback</h3>
+              {feedback.map((item) => (
+                <p key={item}>{item}</p>
+              ))}
+            </div>
+            <div className="mistake-item">
+              <h3 className="task-title">Reusable phrases</h3>
+              {reusablePhrases.map((item) => (
+                <p key={item}>{item}</p>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
     </div>
   );
 }
 
-function VocabularyView() {
+function VocabularyView({ vocabulary }: { vocabulary: VocabularyItem[] }) {
   return (
     <section className="panel">
       <div className="panel-header">
@@ -624,7 +866,7 @@ function VocabularyView() {
   );
 }
 
-function MistakesView() {
+function MistakesView({ mistakes }: { mistakes: Mistake[] }) {
   return (
     <section className="panel">
       <div className="panel-header">
@@ -652,7 +894,7 @@ function MistakesView() {
   );
 }
 
-function ProgressView() {
+function ProgressView({ progress }: { progress: ProgressPoint[] }) {
   const maxMinutes = Math.max(...progress.map((point) => point.minutes), 1);
 
   return (
@@ -700,7 +942,7 @@ function ProgressView() {
   );
 }
 
-function ResourcesView() {
+function ResourcesView({ resources }: { resources: ResourceItem[] }) {
   return (
     <section className="panel">
       <div className="panel-header">
@@ -729,19 +971,23 @@ function ResourcesView() {
 function SettingsView({
   chineseOptional,
   dailyTarget,
+  llmProvider,
   onChineseOptionalChange,
   onDailyTargetChange,
+  speechToTextProvider,
 }: {
   chineseOptional: boolean;
   dailyTarget: number;
+  llmProvider: string;
   onChineseOptionalChange: (value: boolean) => void;
   onDailyTargetChange: (value: number) => void;
+  speechToTextProvider: string;
 }) {
   return (
     <section className="panel">
       <div className="panel-header">
         <h3 className="panel-title">Local Profile</h3>
-        <span className="tag">single-user</span>
+          <span className="tag">single-user</span>
       </div>
       <div className="panel-body">
         <div className="settings-row">
@@ -782,7 +1028,7 @@ function SettingsView({
             <strong>Product LLM</strong>
             <p className="task-detail">Kimi, loaded from local environment variables.</p>
           </div>
-          <span className="tag">kimi-for-coding</span>
+          <span className="tag">{llmProvider}</span>
         </div>
 
         <div className="settings-row">
@@ -790,7 +1036,7 @@ function SettingsView({
             <strong>Speech-to-text</strong>
             <p className="task-detail">Local Whisper transcription through whisper.cpp.</p>
           </div>
-          <span className="tag">local-first</span>
+          <span className="tag">{speechToTextProvider}</span>
         </div>
       </div>
     </section>
@@ -829,7 +1075,7 @@ function TaskList({
 }: {
   expanded?: boolean;
   tasks: LearningTask[];
-  onToggleTask: (taskId: string) => void;
+  onToggleTask: (taskId: string) => void | Promise<void>;
 }) {
   return (
     <div className="task-list">
@@ -838,7 +1084,7 @@ function TaskList({
           <button
             aria-label={`Mark ${task.title} ${task.status === "done" ? "incomplete" : "complete"}`}
             className={`task-check ${task.status === "done" ? "done" : ""}`}
-            onClick={() => onToggleTask(task.id)}
+            onClick={() => void onToggleTask(task.id)}
             type="button"
           >
             {task.status === "done" ? <Check size={17} /> : <Circle size={15} />}

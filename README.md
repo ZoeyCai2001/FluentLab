@@ -45,6 +45,12 @@ Run the backend:
 npm run api:dev
 ```
 
+The frontend reads the backend from:
+
+```bash
+NEXT_PUBLIC_FLUENTLAB_API_URL=http://127.0.0.1:8001
+```
+
 Quality checks:
 
 ```bash
