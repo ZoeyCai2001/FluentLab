@@ -463,6 +463,12 @@ button:disabled {
   gap: 14px;
 }
 
+.page-footer-actions {
+  display: flex;
+  justify-content: center;
+  padding: 10px 0 6px;
+}
+
 .field {
   display: grid;
   gap: 7px;

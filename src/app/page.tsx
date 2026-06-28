@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  ArrowLeft,
   BookOpen,
   CalendarDays,
   Check,
@@ -533,9 +534,12 @@ export default function Home() {
     }
 
     window.speechSynthesis.cancel();
+    const voice = pickNaturalVoice(availableVoices);
     const utterance = new SpeechSynthesisUtterance(polishedVersion);
     utterance.lang = "en-US";
+    utterance.voice = voice ?? null;
     utterance.rate = 0.92;
+    utterance.pitch = 1.02;
     window.speechSynthesis.speak(utterance);
   };
 
@@ -872,6 +876,15 @@ export default function Home() {
               void saveSettings({ ...settings, dailyStudyTargetMinutes: value })
             }
           />
+        )}
+
+        {activeView !== "dashboard" && (
+          <div className="page-footer-actions">
+            <button className="secondary-button" type="button" onClick={() => setActiveView("dashboard")}>
+              <ArrowLeft size={16} aria-hidden="true" />
+              Back to Dashboard
+            </button>
+          </div>
         )}
       </main>
     </div>
