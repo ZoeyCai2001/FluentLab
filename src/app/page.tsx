@@ -201,7 +201,13 @@ const writingPrompt =
   "Write 120 words explaining why your current research problem matters. Start without AI help, then revise from feedback.";
 
 function pickNaturalVoice(voices: SpeechSynthesisVoice[]) {
+  const googleUsEnglish = voices.find((voice) => voice.name.toLowerCase() === "google us english");
+  if (googleUsEnglish) {
+    return googleUsEnglish;
+  }
+
   const preferred = [
+    "Google US English",
     "Samantha",
     "Alex",
     "Ava",
@@ -210,7 +216,6 @@ function pickNaturalVoice(voices: SpeechSynthesisVoice[]) {
     "Victoria",
     "Karen",
     "Daniel",
-    "Google US English",
     "Microsoft Aria",
     "Microsoft Jenny",
   ];
@@ -1058,7 +1063,7 @@ function ListeningView({
           <div className="settings-row listening-controls">
             <div>
               <strong>{practice.title}</strong>
-              <p className="task-detail">Five short audios rotate by day. Pick a warmer system voice if one is available.</p>
+              <p className="task-detail">Five short audios rotate by day. Google US English is selected by default when available.</p>
             </div>
             <select
               aria-label="Listening voice"
