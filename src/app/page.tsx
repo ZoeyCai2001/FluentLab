@@ -895,7 +895,7 @@ function LoginView({
         <div>
           <p className="eyebrow">Private Beta</p>
           <h1 className="login-title">FluentLab</h1>
-          <p className="page-copy">A shared English learning workspace for Zoey and one friend.</p>
+          <p className="page-copy">A shared English learning workspace for Zoey and Haihan.</p>
         </div>
 
         {mode === "checking" ? (
