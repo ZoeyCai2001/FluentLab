@@ -51,6 +51,9 @@ The frontend reads the backend from:
 NEXT_PUBLIC_FLUENTLAB_API_URL=http://127.0.0.1:8001
 ```
 
+When deployed to Vercel as a single project, leave `NEXT_PUBLIC_FLUENTLAB_API_URL` empty so the frontend calls the same-origin `/api` backend.
+The Vercel backend uses `/tmp` for JSON persistence, so saved progress can reset after serverless cold starts. Use a hosted database before treating the deployed version as durable.
+
 ## Private Login
 
 For the two-person private version, set a shared password on the backend:

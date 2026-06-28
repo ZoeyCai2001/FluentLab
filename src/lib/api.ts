@@ -12,8 +12,7 @@ import type {
   WritingFeedback,
 } from "./types";
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_FLUENTLAB_API_URL ?? "http://127.0.0.1:8001";
+const API_BASE_URL = process.env.NEXT_PUBLIC_FLUENTLAB_API_URL ?? "";
 const AUTH_TOKEN_KEY = "fluentlab-auth-token";
 
 type ApiTask = Omit<LearningTask, "status"> & {

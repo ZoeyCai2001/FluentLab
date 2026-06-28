@@ -1,15 +1,22 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+def default_data_path() -> Path:
+    if os.getenv("VERCEL"):
+        return Path("/tmp/fluentlab_state.json")
+    return Path("backend/data/fluentlab_state.json")
+
+
 class Settings(BaseSettings):
     app_name: str = "FluentLab API"
     data_path: Path = Field(
-        default=Path("backend/data/fluentlab_state.json"),
+        default_factory=default_data_path,
         validation_alias="FLUENTLAB_DATA_PATH",
     )
     cors_origins: list[str] = [
