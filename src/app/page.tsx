@@ -41,10 +41,10 @@ import {
 import type { CSSProperties } from "react";
 import {
   initialTasks,
-  listeningPractice,
+  getDailyListeningPractice,
   mistakes as fallbackMistakes,
   progress as fallbackProgress,
-  readingDigest,
+  getDailyReadingDigest,
   resources as fallbackResources,
   getDailySpeakingTopics,
   vocabulary as fallbackVocabulary,
@@ -113,6 +113,9 @@ type NavItem = {
   label: string;
   icon: LucideIcon;
 };
+
+type DailyListeningPractice = ReturnType<typeof getDailyListeningPractice>;
+type DailyReadingDigest = ReturnType<typeof getDailyReadingDigest>;
 
 const navItems: NavItem[] = [
   { id: "dashboard", label: "Dashboard", icon: Gauge },
@@ -193,6 +196,28 @@ const polishedSpeech =
 const writingPrompt =
   "Write 120 words explaining why your current research problem matters. Start without AI help, then revise from feedback.";
 
+function pickNaturalVoice(voices: SpeechSynthesisVoice[]) {
+  const preferred = [
+    "Samantha",
+    "Alex",
+    "Ava",
+    "Allison",
+    "Susan",
+    "Victoria",
+    "Karen",
+    "Daniel",
+    "Google US English",
+    "Microsoft Aria",
+    "Microsoft Jenny",
+  ];
+
+  return (
+    voices.find((voice) => preferred.some((name) => voice.name.toLowerCase().includes(name.toLowerCase()))) ??
+    voices.find((voice) => voice.localService && voice.lang.toLowerCase().startsWith("en-us")) ??
+    voices.find((voice) => voice.lang.toLowerCase().startsWith("en"))
+  );
+}
+
 export default function Home() {
   const [activeView, setActiveView] = useState<View>("dashboard");
   const [tasks, setTasks] = useState<LearningTask[]>(initialTasks);
@@ -233,7 +258,9 @@ export default function Home() {
   const [writingPhrases, setWritingPhrases] = useState<string[]>([]);
   const [isReviewingWriting, setIsReviewingWriting] = useState(false);
   const [listeningAnswers, setListeningAnswers] = useState<Record<string, string>>({});
-  const [readingAnswers, setReadingAnswers] = useState<Record<string, string>>({});
+  const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [selectedVoiceURI, setSelectedVoiceURI] = useState("");
+  const [speakingStatus, setSpeakingStatus] = useState("Backend polish ready");
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
@@ -260,6 +287,12 @@ export default function Home() {
   }, [tasks]);
 
   const meta = pageMeta[activeView];
+  const dailyListeningPractice = useMemo(() => getDailyListeningPractice(), []);
+  const dailyReadingDigest = useMemo(() => getDailyReadingDigest(), []);
+  const todayLabel = useMemo(
+    () => new Intl.DateTimeFormat("en-US", { day: "numeric", month: "short" }).format(new Date()),
+    [],
+  );
 
   const loadBackendData = useCallback(async () => {
     setIsSyncing(true);
@@ -309,6 +342,22 @@ export default function Home() {
         mediaRecorderRef.current.stop();
       }
     };
+  }, []);
+
+  useEffect(() => {
+    if (!("speechSynthesis" in window)) {
+      return;
+    }
+
+    const loadVoices = () => {
+      const voices = window.speechSynthesis.getVoices().filter((voice) => voice.lang.toLowerCase().startsWith("en"));
+      setAvailableVoices(voices);
+      setSelectedVoiceURI((current) => current || pickNaturalVoice(voices)?.voiceURI || voices[0]?.voiceURI || "");
+    };
+
+    loadVoices();
+    window.speechSynthesis.addEventListener("voiceschanged", loadVoices);
+    return () => window.speechSynthesis.removeEventListener("voiceschanged", loadVoices);
   }, []);
 
   const toggleTask = async (taskId: string) => {
@@ -441,33 +490,46 @@ export default function Home() {
     window.speechSynthesis.speak(utterance);
   };
 
-  const playListeningPractice = () => {
+  const playListeningPractice = (text: string) => {
     if (!("speechSynthesis" in window)) {
       return;
     }
 
     window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(listeningPractice.transcript);
+    const voice = availableVoices.find((item) => item.voiceURI === selectedVoiceURI) ?? pickNaturalVoice(availableVoices);
+    const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = "en-US";
-    utterance.rate = 0.86;
+    utterance.voice = voice ?? null;
+    utterance.rate = 0.9;
+    utterance.pitch = 1.02;
     window.speechSynthesis.speak(utterance);
   };
 
   const requestSpeakingPolish = async () => {
+    const cleanTranscript = transcript.trim();
+    if (!cleanTranscript) {
+      setSpeakingStatus("Add or record a transcript before polishing");
+      setShowPolish(false);
+      return;
+    }
+
     setIsPolishing(true);
+    setSpeakingStatus("Polishing with backend...");
     try {
-      const result = await polishSpeaking(selectedTopic, transcript);
+      const result = await polishSpeaking(selectedTopic, cleanTranscript);
       setPolishedVersion(result.polishedVersion);
       setSpeakingFeedback(result.feedback);
       setSpeakingExpressions(result.usefulExpressions);
       setShowPolish(true);
       setApiLive(true);
       setApiMessage("Backend API live");
+      setSpeakingStatus("Polish complete");
     } catch (error) {
       console.error(error);
       setApiLive(false);
       setApiMessage("Could not request backend speaking polish");
-      setShowPolish(true);
+      setSpeakingStatus("Backend polish failed");
+      setShowPolish(false);
     } finally {
       setIsPolishing(false);
     }
@@ -592,7 +654,7 @@ export default function Home() {
           <div className="top-actions">
             <span className="pill">
               <CalendarDays size={15} aria-hidden="true" />
-              Jun 25
+              {todayLabel}
             </span>
             <span className="pill">
               <Sparkles size={15} aria-hidden="true" />
@@ -626,12 +688,16 @@ export default function Home() {
         {activeView === "listening" && (
           <ListeningView
             answers={listeningAnswers}
+            availableVoices={availableVoices}
+            practice={dailyListeningPractice}
             onAnswerChange={(id, value) =>
               setListeningAnswers((current) => ({ ...current, [id]: value }))
             }
             onCompleteTask={(taskId) => void toggleTask(taskId)}
             onPlayAudio={playListeningPractice}
+            onVoiceChange={setSelectedVoiceURI}
             resources={resourceItems}
+            selectedVoiceURI={selectedVoiceURI}
             tasks={tasks.filter((task) => task.skill === "Listening")}
           />
         )}
@@ -651,6 +717,7 @@ export default function Home() {
             polishedVisible={showPolish}
             polishedVersion={polishedVersion}
             selectedTopic={selectedTopic}
+            speakingStatus={speakingStatus}
             speechRecognitionSupported={speechRecognitionSupported}
             topics={dailySpeakingTopics}
             transcript={transcript}
@@ -675,10 +742,7 @@ export default function Home() {
 
         {activeView === "reading" && (
           <ReadingView
-            answers={readingAnswers}
-            onAnswerChange={(id, value) =>
-              setReadingAnswers((current) => ({ ...current, [id]: value }))
-            }
+            digest={dailyReadingDigest}
             onCompleteTask={(taskId) => void toggleTask(taskId)}
             resources={resourceItems}
             tasks={tasks.filter((task) => task.skill === "Reading")}
@@ -738,7 +802,19 @@ function DashboardView({
   onStartTask: (task: LearningTask) => void;
   onToggleTask: (taskId: string) => void | Promise<void>;
 }) {
-  const showCelebration = tasks.length > 0 && completedTasks === tasks.length;
+  const allTasksDone = tasks.length > 0 && completedTasks === tasks.length;
+  const [showCelebration, setShowCelebration] = useState(false);
+
+  useEffect(() => {
+    if (!allTasksDone) {
+      setShowCelebration(false);
+      return;
+    }
+
+    setShowCelebration(true);
+    const timer = window.setTimeout(() => setShowCelebration(false), 5000);
+    return () => window.clearTimeout(timer);
+  }, [allTasksDone]);
 
   return (
     <div>
@@ -792,17 +868,25 @@ function DashboardView({
 
 function ListeningView({
   answers,
+  availableVoices,
   onAnswerChange,
   onCompleteTask,
   onPlayAudio,
+  onVoiceChange,
+  practice,
   resources,
+  selectedVoiceURI,
   tasks,
 }: {
   answers: Record<string, string>;
+  availableVoices: SpeechSynthesisVoice[];
   onAnswerChange: (id: string, value: string) => void;
   onCompleteTask: (taskId: string) => void;
-  onPlayAudio: () => void;
+  onPlayAudio: (text: string) => void;
+  onVoiceChange: (voiceURI: string) => void;
+  practice: DailyListeningPractice;
   resources: ResourceItem[];
+  selectedVoiceURI: string;
   tasks: LearningTask[];
 }) {
   const listeningResources = resources.filter((resource) => resource.skill === "Listening");
@@ -818,49 +902,85 @@ function ListeningView({
           </span>
         </div>
         <div className="panel-body stack">
-          <div className="resource-item">
+          <div className="settings-row listening-controls">
+            <div>
+              <strong>{practice.title}</strong>
+              <p className="task-detail">Five short audios rotate by day. Pick a warmer system voice if one is available.</p>
+            </div>
+            <select
+              aria-label="Listening voice"
+              className="select"
+              value={selectedVoiceURI}
+              onChange={(event) => onVoiceChange(event.target.value)}
+            >
+              {availableVoices.length === 0 && <option value="">Default browser voice</option>}
+              {availableVoices.map((voice) => (
+                <option key={voice.voiceURI} value={voice.voiceURI}>
+                  {voice.name} ({voice.lang})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {practice.items.map((item, index) => (
+            <article className="resource-item listening-card" key={item.id}>
             <div className="task-meta">
-              <span className="tag skill-Listening">{listeningPractice.audioLabel}</span>
+              <span className="tag skill-Listening">Audio {index + 1}</span>
               <span className="tag">{task?.minutes ?? 12}m</span>
             </div>
-            <h3 className="task-title">{listeningPractice.title}</h3>
+            <h3 className="task-title">{item.title}</h3>
             <p>{task?.goal}</p>
-            <button className="primary-button" type="button" onClick={onPlayAudio}>
+            <button className="primary-button" type="button" onClick={() => onPlayAudio(item.transcript)}>
               <Volume2 size={16} aria-hidden="true" />
               Play audio
             </button>
+
+            <div className="choice-grid" role="group" aria-label={`${item.title} questions`}>
+              {item.questions.map((question) => (
+                <fieldset className="choice-field" key={question.id}>
+                  <legend>{question.prompt}</legend>
+                  {question.options.map((option) => (
+                    <label className="choice-option" key={option}>
+                      <input
+                        checked={answers[question.id] === option}
+                        name={question.id}
+                        onChange={() => onAnswerChange(question.id, option)}
+                        type="radio"
+                      />
+                      {option}
+                    </label>
+                  ))}
+                  {answers[question.id] && (
+                    <p className={answers[question.id] === question.answer ? "answer-correct" : "answer-wrong"}>
+                      {answers[question.id] === question.answer ? "Correct" : `Answer: ${question.answer}`}
+                    </p>
+                  )}
+                </fieldset>
+              ))}
+            </div>
+
+            <details className="text-box compact-box">
+              <summary>Transcript</summary>
+              <p>{item.transcript}</p>
+            </details>
+            </article>
+          ))}
+
+          <div className="task-meta">
+            <span className="tag">
+              {Object.keys(answers).length}/{practice.items.reduce((sum, item) => sum + item.questions.length, 0)} selected
+            </span>
+            {task && (
+              <button
+                className="primary-button"
+                type="button"
+                onClick={() => onCompleteTask(task.id)}
+              >
+                <Check size={16} aria-hidden="true" />
+                {task.status === "done" ? "Mark unfinished" : "Finish listening task"}
+              </button>
+            )}
           </div>
-
-          <div className="two-column">
-            {listeningPractice.questions.map((question) => (
-              <div className="field" key={question.id}>
-                <label htmlFor={`listening-${question.id}`}>{question.prompt}</label>
-                <textarea
-                  className="textarea compact-textarea"
-                  id={`listening-${question.id}`}
-                  value={answers[question.id] ?? ""}
-                  onChange={(event) => onAnswerChange(question.id, event.target.value)}
-                />
-                <p className="task-detail">Answer key: {question.answer}</p>
-              </div>
-            ))}
-          </div>
-
-          <details className="text-box">
-            <summary>Transcript</summary>
-            <p>{listeningPractice.transcript}</p>
-          </details>
-
-          {task && (
-            <button
-              className="primary-button"
-              type="button"
-              onClick={() => onCompleteTask(task.id)}
-            >
-              <Check size={16} aria-hidden="true" />
-              {task.status === "done" ? "Mark unfinished" : "Finish listening task"}
-            </button>
-          )}
         </div>
       </section>
 
@@ -890,14 +1010,12 @@ function ListeningView({
 }
 
 function ReadingView({
-  answers,
-  onAnswerChange,
+  digest,
   onCompleteTask,
   resources,
   tasks,
 }: {
-  answers: Record<string, string>;
-  onAnswerChange: (id: string, value: string) => void;
+  digest: DailyReadingDigest;
   onCompleteTask: (taskId: string) => void;
   resources: ResourceItem[];
   tasks: LearningTask[];
@@ -909,7 +1027,7 @@ function ReadingView({
     <div className="stack">
       <section className="panel">
         <div className="panel-header">
-          <h3 className="panel-title">{readingDigest.title}</h3>
+          <h3 className="panel-title">{digest.title}</h3>
           <span className={`tag ${task?.status === "done" ? "skill-Daily" : "skill-Reading"}`}>
             {task?.status === "done" ? "done" : "active task"}
           </span>
@@ -917,23 +1035,14 @@ function ReadingView({
         <div className="panel-body stack">
           <div className="text-box digest-box">
             <div className="task-meta">
-              <span className="tag skill-Reading">{readingDigest.source}</span>
+              <span className="tag skill-Reading">{digest.source}</span>
+              <span className="tag">{digest.level}</span>
               <span className="tag">{task?.minutes ?? 10}m</span>
             </div>
-            <p>{readingDigest.text}</p>
+            {digest.text.split("\n\n").map((paragraph) => (
+              <p key={paragraph}>{paragraph}</p>
+            ))}
           </div>
-
-          {readingDigest.prompts.map((prompt, index) => (
-            <div className="field" key={prompt}>
-              <label htmlFor={`reading-${index}`}>{prompt}</label>
-              <textarea
-                className="textarea compact-textarea"
-                id={`reading-${index}`}
-                value={answers[String(index)] ?? ""}
-                onChange={(event) => onAnswerChange(String(index), event.target.value)}
-              />
-            </div>
-          ))}
 
           {task && (
             <button
@@ -988,6 +1097,7 @@ function SpeakingView({
   polishedVisible,
   polishedVersion,
   selectedTopic,
+  speakingStatus,
   speechRecognitionSupported,
   topics,
   transcript,
@@ -1008,6 +1118,7 @@ function SpeakingView({
   polishedVisible: boolean;
   polishedVersion: string;
   selectedTopic: string;
+  speakingStatus: string;
   speechRecognitionSupported: boolean;
   topics: string[];
   transcript: string;
@@ -1080,7 +1191,12 @@ function SpeakingView({
           <h3 className="panel-title">Transcript and Polish</h3>
           <div className="top-actions">
             <span className={`tag ${isTranscribing ? "skill-Speaking" : ""}`}>{transcriptionStatus}</span>
-            <button className="secondary-button" type="button" onClick={() => void onPolish()}>
+            <button
+              className="secondary-button"
+              disabled={isPolishing || transcript.trim().length === 0}
+              type="button"
+              onClick={() => void onPolish()}
+            >
               <Wand2 size={16} aria-hidden="true" />
               {isPolishing ? "Polishing" : "Polish"}
             </button>
@@ -1102,7 +1218,10 @@ function SpeakingView({
           </div>
           <div className="field">
             <label>Polished version</label>
-            <div className="text-box">{polishedVisible ? polishedVersion : "Submit a transcript to create a polished version."}</div>
+            <div className="text-box">
+              {polishedVisible ? polishedVersion : "Add a transcript, then press Polish to create a better version."}
+            </div>
+            <p className="task-detail">{speakingStatus}</p>
           </div>
         </div>
       </section>

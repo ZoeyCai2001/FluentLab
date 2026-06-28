@@ -471,6 +471,63 @@ button:disabled {
   min-height: 86px;
 }
 
+.listening-controls .select {
+  max-width: 360px;
+}
+
+.listening-card {
+  display: grid;
+  gap: 12px;
+}
+
+.choice-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.choice-field {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin: 0;
+  padding: 12px;
+}
+
+.choice-field legend {
+  color: var(--ink);
+  font-weight: 700;
+  padding: 0 4px;
+}
+
+.choice-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.choice-option input {
+  accent-color: var(--teal);
+}
+
+.answer-correct,
+.answer-wrong {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.answer-correct {
+  color: var(--green);
+}
+
+.answer-wrong {
+  color: var(--rose);
+}
+
 .speech-stage {
   display: grid;
   gap: 18px;
@@ -526,6 +583,10 @@ button:disabled {
 }
 
 .digest-box {
+  min-height: auto;
+}
+
+.compact-box {
   min-height: auto;
 }
 

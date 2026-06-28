@@ -31,6 +31,11 @@ The first implementation goal is not to build a large course platform. The first
 - Resource Center and module source links should use exact picked lessons, videos, articles, or lectures instead of broad homepages.
 - Vocabulary Bank should separate words and phrases, with at least 10 of each in the daily bank.
 - Need review actions must visibly save to Mistake Notebook and prevent duplicate saves.
+- Dashboard completion celebration should be temporary, about 5 seconds.
+- Short listening clips should be grouped into multi-audio daily sets, with selection-style comprehension checks.
+- Browser speech synthesis should prefer warmer English system voices when available and expose voice choice for listening practice.
+- Reading Digest should prioritize longer, harder reading material and avoid turning every reading session into a question/answer worksheet.
+- Daily learning materials should rotate by date until a scheduler or content-generation service is added.
 
 ## 2. Product Shape
 

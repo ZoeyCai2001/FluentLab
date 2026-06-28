@@ -106,3 +106,11 @@ User testing feedback:
 - Speaking Room topics should be more specific and scenario-based.
 - Reading Digest should provide an actual digest and let the learner finish the task.
 - Vocabulary Bank needs at least 10 phrases and 10 words, and the Need review button must visibly save items into Mistake Notebook.
+
+Second user testing feedback:
+
+- Dashboard celebration should last about 5 seconds instead of staying on screen forever.
+- Listening practice needs more material when clips are short, selection-style tests instead of writing boxes, and a less robotic listening voice where the browser offers one.
+- Speaking Room polish must visibly work and report status.
+- Reading Digest should remove question/answer prompts and provide longer, harder reading material.
+- Learning materials should rotate every day.
