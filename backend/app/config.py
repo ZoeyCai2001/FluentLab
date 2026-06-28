@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -25,8 +25,17 @@ class Settings(BaseSettings):
     )
     kimi_model: str = Field(default="kimi-for-coding", validation_alias="KIMI_MODEL")
     project_llm_provider: str = Field(default="kimi", validation_alias="PROJECT_LLM_PROVIDER")
+    shared_password: str | None = Field(default=None, validation_alias="FLUENTLAB_SHARED_PASSWORD")
+    auth_token: str | None = Field(default=None, validation_alias="FLUENTLAB_AUTH_TOKEN")
 
     model_config = SettingsConfigDict(
         env_file=".env",
         extra="ignore",
     )
+
+    @field_validator("cors_origins", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, value: object) -> object:
+        if isinstance(value, str):
+            return [origin.strip() for origin in value.split(",") if origin.strip()]
+        return value

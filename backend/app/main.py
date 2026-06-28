@@ -1,14 +1,20 @@
 from __future__ import annotations
 
+import secrets
 from pathlib import Path
 
+from fastapi import Request
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.responses import JSONResponse
 
 from .config import Settings
 from .models import (
+    AuthStatusResponse,
     DailyPlan,
     LearnerProfile,
+    LoginRequest,
+    LoginResponse,
     Mistake,
     ResourceItem,
     SpeakingPolishRequest,
@@ -23,13 +29,17 @@ from .services.feedback import polish_speaking, review_writing
 from .store import JsonStateStore
 
 
-def create_app(data_path: Path | None = None) -> FastAPI:
+def create_app(data_path: Path | None = None, *, disable_auth: bool = False) -> FastAPI:
     settings = Settings()
     if data_path is not None:
         settings.data_path = data_path
+    if disable_auth:
+        settings.shared_password = None
+        settings.auth_token = None
 
     app = FastAPI(title=settings.app_name)
     app.state.store = JsonStateStore(settings.data_path)
+    app.state.auth_token = settings.auth_token or secrets.token_urlsafe(32)
 
     app.add_middleware(
         CORSMiddleware,
@@ -39,12 +49,38 @@ def create_app(data_path: Path | None = None) -> FastAPI:
         allow_headers=["*"],
     )
 
+    @app.middleware("http")
+    async def require_auth(request: Request, call_next):
+        public_paths = {"/health", "/api/auth/status", "/api/auth/login"}
+        if (
+            settings.shared_password
+            and request.url.path.startswith("/api/")
+            and request.url.path not in public_paths
+            and request.method != "OPTIONS"
+        ):
+            token = request.headers.get("x-fluentlab-token", "")
+            if token != app.state.auth_token:
+                return JSONResponse({"detail": "Authentication required"}, status_code=401)
+        return await call_next(request)
+
     def get_store() -> JsonStateStore:
         return app.state.store
 
     @app.get("/health")
     def health() -> dict[str, str]:
         return {"status": "ok", "service": "fluentlab-api"}
+
+    @app.get("/api/auth/status", response_model=AuthStatusResponse)
+    def get_auth_status() -> AuthStatusResponse:
+        return AuthStatusResponse(auth_required=bool(settings.shared_password))
+
+    @app.post("/api/auth/login", response_model=LoginResponse)
+    def login(payload: LoginRequest) -> LoginResponse:
+        if not settings.shared_password:
+            return LoginResponse(token=app.state.auth_token)
+        if not secrets.compare_digest(payload.password, settings.shared_password):
+            raise HTTPException(status_code=401, detail="Incorrect password")
+        return LoginResponse(token=app.state.auth_token)
 
     @app.get("/api/profile", response_model=LearnerProfile)
     def get_profile(store: JsonStateStore = Depends(get_store)) -> LearnerProfile:

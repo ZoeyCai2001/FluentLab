@@ -3,12 +3,13 @@ from __future__ import annotations
 from pathlib import Path
 
 from fastapi.testclient import TestClient
+from pytest import MonkeyPatch
 
 from backend.app.main import create_app
 
 
-def make_client(tmp_path: Path) -> TestClient:
-    app = create_app(data_path=tmp_path / "state.json")
+def make_client(tmp_path: Path, *, disable_auth: bool = True) -> TestClient:
+    app = create_app(data_path=tmp_path / "state.json", disable_auth=disable_auth)
     return TestClient(app)
 
 
@@ -132,3 +133,20 @@ def test_listening_resources_are_exact_picks(tmp_path: Path) -> None:
     assert "https://www.nasa.gov/podcasts/" not in urls
     assert any("lecture-1-introduction" in url for url in urls)
     assert any("lets-learn-english-level-1-lesson-1-welcome" in url for url in urls)
+
+
+def test_shared_password_protects_api(tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
+    monkeypatch.setenv("FLUENTLAB_SHARED_PASSWORD", "friend-pass")
+    monkeypatch.setenv("FLUENTLAB_AUTH_TOKEN", "stable-test-token")
+    client = make_client(tmp_path, disable_auth=False)
+
+    assert client.get("/api/auth/status").json() == {"auth_required": True}
+    assert client.get("/api/plans/today").status_code == 401
+    assert client.post("/api/auth/login", json={"password": "wrong"}).status_code == 401
+
+    login = client.post("/api/auth/login", json={"password": "friend-pass"})
+    assert login.status_code == 200
+    assert login.json()["token"] == "stable-test-token"
+
+    plan = client.get("/api/plans/today", headers={"x-fluentlab-token": "stable-test-token"})
+    assert plan.status_code == 200

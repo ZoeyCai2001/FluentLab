@@ -26,13 +26,17 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   addMistake,
+  clearStoredAuthToken,
+  getAuthStatus,
   getHealth,
   getMistakes,
   getResources,
   getSettings,
+  getStoredAuthToken,
   getTodayPlan,
   getVocabulary,
   getWeeklyProgress,
+  login,
   polishSpeaking,
   reviewWriting,
   updateSettings,
@@ -235,6 +239,12 @@ export default function Home() {
   const [apiLive, setApiLive] = useState(false);
   const [apiMessage, setApiMessage] = useState("Loading backend data...");
   const [isSyncing, setIsSyncing] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [authRequired, setAuthRequired] = useState(false);
+  const [authToken, setAuthToken] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [loginMessage, setLoginMessage] = useState("");
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
   const dailySpeakingTopics = useMemo(() => getDailySpeakingTopics(), []);
   const [selectedTopic, setSelectedTopic] = useState(dailySpeakingTopics[0]);
   const [isRecording, setIsRecording] = useState(false);
@@ -295,6 +305,11 @@ export default function Home() {
   );
 
   const loadBackendData = useCallback(async () => {
+    if (authRequired && !authToken) {
+      setIsSyncing(false);
+      return;
+    }
+
     setIsSyncing(true);
     try {
       const [health, plan, apiSettings, apiVocabulary, apiMistakes, apiResources, weeklyProgress] =
@@ -318,15 +333,44 @@ export default function Home() {
       setProgressPoints(weeklyProgress.points);
     } catch (error) {
       console.error(error);
+      if (authRequired && error instanceof Error && error.message.includes("401")) {
+        clearStoredAuthToken();
+        setAuthToken("");
+        setLoginMessage("Session expired. Please log in again.");
+        setApiMessage("Login required");
+        return;
+      }
       setApiLive(false);
       setApiMessage("Backend offline, using local fallback data");
     } finally {
       setIsSyncing(false);
     }
+  }, [authRequired, authToken]);
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const required = await getAuthStatus();
+        const token = getStoredAuthToken();
+        setAuthRequired(required);
+        setAuthToken(token);
+        setLoginMessage(required && !token ? "Enter the shared FluentLab password." : "");
+      } catch (error) {
+        console.error(error);
+        setAuthRequired(false);
+        setLoginMessage("Could not check login status. Using local fallback if needed.");
+      } finally {
+        setAuthChecked(true);
+      }
+    };
+
+    void checkAuth();
   }, []);
 
   useEffect(() => {
-    void loadBackendData();
+    if (authChecked && (!authRequired || authToken)) {
+      void loadBackendData();
+    }
   }, [loadBackendData]);
 
   useEffect(() => {
@@ -596,6 +640,34 @@ export default function Home() {
     }
   };
 
+  const submitLogin = async () => {
+    setIsLoggingIn(true);
+    setLoginMessage("Checking password...");
+    try {
+      const token = await login(loginPassword);
+      setAuthToken(token);
+      setLoginPassword("");
+      setLoginMessage("");
+      setApiMessage("Backend API live");
+      setApiLive(true);
+    } catch (error) {
+      console.error(error);
+      clearStoredAuthToken();
+      setAuthToken("");
+      setLoginMessage("Incorrect password. Try again.");
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  const logout = () => {
+    clearStoredAuthToken();
+    setAuthToken("");
+    setApiLive(false);
+    setApiMessage("Logged out");
+    setLoginMessage("Enter the shared FluentLab password.");
+  };
+
   const getTaskView = (task: LearningTask): View => {
     if (task.skill === "Listening") {
       return "listening";
@@ -614,6 +686,23 @@ export default function Home() {
     }
     return "dashboard";
   };
+
+  if (!authChecked) {
+    return <LoginView mode="checking" />;
+  }
+
+  if (authRequired && !authToken) {
+    return (
+      <LoginView
+        isLoggingIn={isLoggingIn}
+        message={loginMessage}
+        mode="login"
+        password={loginPassword}
+        onPasswordChange={setLoginPassword}
+        onSubmit={submitLogin}
+      />
+    );
+  }
 
   return (
     <div className="app-shell">
@@ -667,6 +756,11 @@ export default function Home() {
               <RotateCw size={15} aria-hidden="true" />
               {isSyncing ? "Syncing" : "Sync API"}
             </button>
+            {authRequired && (
+              <button className="secondary-button" type="button" onClick={logout}>
+                Log out
+              </button>
+            )}
           </div>
         </header>
 
@@ -776,6 +870,65 @@ export default function Home() {
         )}
       </main>
     </div>
+  );
+}
+
+function LoginView({
+  isLoggingIn = false,
+  message = "",
+  mode,
+  password = "",
+  onPasswordChange,
+  onSubmit,
+}: {
+  isLoggingIn?: boolean;
+  message?: string;
+  mode: "checking" | "login";
+  password?: string;
+  onPasswordChange?: (value: string) => void;
+  onSubmit?: () => void | Promise<void>;
+}) {
+  return (
+    <main className="login-shell">
+      <section className="login-panel">
+        <div className="brand-mark">FL</div>
+        <div>
+          <p className="eyebrow">Private Beta</p>
+          <h1 className="login-title">FluentLab</h1>
+          <p className="page-copy">A shared English learning workspace for Zoey and one friend.</p>
+        </div>
+
+        {mode === "checking" ? (
+          <p className="task-detail">Checking login status...</p>
+        ) : (
+          <form
+            className="form-grid"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void onSubmit?.();
+            }}
+          >
+            <div className="field">
+              <label htmlFor="login-password">Shared password</label>
+              <input
+                autoComplete="current-password"
+                autoFocus
+                className="input"
+                id="login-password"
+                onChange={(event) => onPasswordChange?.(event.target.value)}
+                placeholder="Enter password"
+                type="password"
+                value={password}
+              />
+            </div>
+            <button className="primary-button" disabled={isLoggingIn || password.trim().length === 0} type="submit">
+              {isLoggingIn ? "Logging in" : "Log in"}
+            </button>
+            {message && <p className="task-detail">{message}</p>}
+          </form>
+        )}
+      </section>
+    </main>
   );
 }
 

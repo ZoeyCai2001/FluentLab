@@ -51,6 +51,29 @@ The frontend reads the backend from:
 NEXT_PUBLIC_FLUENTLAB_API_URL=http://127.0.0.1:8001
 ```
 
+## Private Login
+
+For the two-person private version, set a shared password on the backend:
+
+```bash
+FLUENTLAB_SHARED_PASSWORD=choose-a-password
+FLUENTLAB_AUTH_TOKEN=choose-a-long-random-token
+```
+
+`FLUENTLAB_AUTH_TOKEN` should stay stable in production so browser sessions survive backend restarts. If `FLUENTLAB_SHARED_PASSWORD` is empty, the API stays open for local development.
+
+When deploying the frontend and backend separately, allow the frontend origin in the backend:
+
+```bash
+CORS_ORIGINS=https://your-vercel-app.vercel.app
+```
+
+Then set this on the frontend deployment:
+
+```bash
+NEXT_PUBLIC_FLUENTLAB_API_URL=https://your-backend-service.onrender.com
+```
+
 Quality checks:
 
 ```bash

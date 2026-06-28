@@ -14,6 +14,7 @@ import type {
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_FLUENTLAB_API_URL ?? "http://127.0.0.1:8001";
+const AUTH_TOKEN_KEY = "fluentlab-auth-token";
 
 type ApiTask = Omit<LearningTask, "status"> & {
   status: TaskStatus;
@@ -62,6 +63,40 @@ type ApiWritingFeedback = {
   reusable_phrases: string[];
   extracted_mistakes: Mistake[];
 };
+
+export function getStoredAuthToken(): string {
+  if (typeof window === "undefined") {
+    return "";
+  }
+  return window.localStorage.getItem(AUTH_TOKEN_KEY) ?? "";
+}
+
+export function clearStoredAuthToken() {
+  if (typeof window === "undefined") {
+    return;
+  }
+  window.localStorage.removeItem(AUTH_TOKEN_KEY);
+}
+
+export async function getAuthStatus(): Promise<boolean> {
+  const result = await request<{ auth_required: boolean }>("/api/auth/status", {}, { skipAuth: true });
+  return result.auth_required;
+}
+
+export async function login(password: string): Promise<string> {
+  const result = await request<{ token: string }>(
+    "/api/auth/login",
+    {
+      method: "POST",
+      body: JSON.stringify({ password }),
+    },
+    { skipAuth: true },
+  );
+  if (typeof window !== "undefined") {
+    window.localStorage.setItem(AUTH_TOKEN_KEY, result.token);
+  }
+  return result.token;
+}
 
 export async function getHealth(): Promise<boolean> {
   const response = await fetch(`${API_BASE_URL}/health`, { cache: "no-store" });
@@ -156,12 +191,18 @@ export async function reviewWriting(prompt: string, draft: string): Promise<Writ
   };
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+async function request<T>(
+  path: string,
+  init?: RequestInit,
+  options: { skipAuth?: boolean } = {},
+): Promise<T> {
+  const token = options.skipAuth ? "" : getStoredAuthToken();
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
     cache: "no-store",
     headers: {
       "Content-Type": "application/json",
+      ...(token ? { "x-fluentlab-token": token } : {}),
       ...init?.headers,
     },
   });

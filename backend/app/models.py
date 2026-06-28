@@ -113,6 +113,18 @@ class TaskStatusUpdate(BaseModel):
     status: TaskStatus
 
 
+class LoginRequest(BaseModel):
+    password: str = Field(min_length=1)
+
+
+class LoginResponse(BaseModel):
+    token: str
+
+
+class AuthStatusResponse(BaseModel):
+    auth_required: bool
+
+
 class SpeakingPolishRequest(BaseModel):
     topic: str = Field(min_length=3)
     transcript: str = Field(min_length=1)

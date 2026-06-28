@@ -58,6 +58,30 @@ button:disabled {
   min-height: 100vh;
 }
 
+.login-shell {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  padding: 24px;
+}
+
+.login-panel {
+  display: grid;
+  gap: 18px;
+  width: min(100%, 420px);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  padding: 28px;
+}
+
+.login-title {
+  margin: 0;
+  font-size: 34px;
+  letter-spacing: 0;
+}
+
 .sidebar {
   position: sticky;
   top: 0;
