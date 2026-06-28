@@ -1,0 +1,8 @@
+.env
+.env.*
+.next
+.pytest_cache
+.venv
+.venv.*
+node_modules
+tsconfig.tsbuildinfo
